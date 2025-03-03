@@ -16,7 +16,7 @@ host_active_interface = ''
 gateway_ip_addr = ''
 ip_range = []
 
-# Database connection and lock
+# In-memory database connection and lock
 db_conn_and_lock = None
 
 # Whether the application is running or not. True by default; if false, the

@@ -7,14 +7,22 @@ import sqlite3
 import threading
 
 
+use_in_memory_db_for_internal_bookkeeping = False # TODO set to True
+
+debug_db_path = 'debug_mem_db.db'
+
 
 def initialize_db():
     """
     Returns the connection and rw_lock to an in-memory SQLite database.
 
     """
+    db_uri = ':memory:'
+    if not use_in_memory_db_for_internal_bookkeeping:
+        db_uri = debug_db_path
+
     # Connect to an in-memory SQLite database
-    conn = sqlite3.connect(':memory:', check_same_thread=False)
+    conn = sqlite3.connect(db_uri, check_same_thread=False)
     conn.row_factory = sqlite3.Row
 
     # Create a lock for thread-safe access
@@ -27,9 +35,10 @@ def initialize_db():
         cursor.execute('''
             CREATE TABLE devices (
                 mac_address TEXT PRIMARY KEY,
-                ip_address TEXT,
-                is_inspected INTEGER,
-                metadata_json TEXT
+                ip_address TEXT NOT NULL,
+                is_inspected INTEGER DEFAULT 0,
+                updated_ts INTEGER DEFAULT 0,
+                metadata_json TEXT DEFAULT '{}'
             )
         ''')
 
@@ -40,12 +49,18 @@ def initialize_db():
         # Create the hostnames table
         cursor.execute('''
             CREATE TABLE hostnames (
-                ip_address TEXT PRIMARY KEY,
-                hostname TEXT,
-                data_source TEXT,
-                metadata_json TEXT
+                device_mac_address TEXT NOT NULL,
+                ip_address TEXT,
+                hostname TEXT NOT NULL,
+                updated_ts INTEGER DEFAULT 0,
+                data_source TEXT NOT NULL,
+                metadata_json TEXT DEFAULT '{}',
+                PRIMARY KEY (device_mac_address, ip_address, hostname)
             )
         ''')
+
+        # Create an index on the hostnames
+        cursor.execute('CREATE INDEX idx_hostnames_hostname ON hostnames(hostname)')
 
         # Create the network flows table, with a compound primary key as the flow_key
         cursor.execute('''
@@ -58,10 +73,16 @@ def initialize_db():
                 src_port TEXT,
                 dest_port TEXT,
                 protocol TEXT,
-                byte_count INTEGER,
-                packet_count INTEGER,
-                metadata_json TEXT,
-                PRIMARY KEY (timstamp, src_ip_address, dest_ip_address, src_port, dest_port, protocol)
+                byte_count INTEGER DEFAULT 0,
+                packet_count INTEGER DEFAULT 0,
+                metadata_json TEXT DEFAULT '{}',
+                PRIMARY KEY (
+                       timestamp,
+                       src_mac_address, dest_mac_address,
+                       src_ip_address, dest_ip_address,
+                       src_port, dest_port,
+                       protocol
+                    )
             )
         ''')
 

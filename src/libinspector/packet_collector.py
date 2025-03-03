@@ -15,12 +15,14 @@ def start_packet_collector():
 
     sc.load_layer('tls')
 
-    # Continuously sniff packets for 30 second intervals
+    # Continuously sniff packets for 30 second intervals (as sniff might crash).
+    # Also, avoid capturing packets to/from the host itself, except ARP, which
+    # we need for discovery.
     sc.sniff(
         prn=add_packet_to_queue,
         iface=host_active_interface,
         stop_filter=lambda _: not inspector_is_running(),
-        filter=f'(not arp and host not {host_ip_addr}) or arp', # Avoid capturing packets to/from the host itself, except ARP, which we need for discovery -- this is for performance improvement
+        filter=f'(not arp and host not {host_ip_addr}) or arp',
         timeout=30
     )
 

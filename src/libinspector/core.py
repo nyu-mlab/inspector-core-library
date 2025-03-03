@@ -15,7 +15,7 @@ from . import arp_scanner
 from . import packet_collector
 
 
-def start_threads(log_file):
+def start_threads():
 
     # Make sure that only one single instance of Inspector core is running
     with global_state.global_state_lock:
