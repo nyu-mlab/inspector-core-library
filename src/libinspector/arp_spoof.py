@@ -85,14 +85,14 @@ def start():
 
 
 
-def send_spoofed_arp(victim_mac_addr, victim_ip_addr, dest_mac_addr, dest_ip_addr):
+def send_spoofed_arp(victim_mac_addr, victim_ip_addr, gateway_mac_addr, gateway_ip_addr):
     """
-    Sends out bidirectional ARP spoofing packets to the victim so that the host running Inspector appears to have the `dest_ip_addr` IP address.
+    Sends out bidirectional ARP spoofing packets between the victim and the gateway.
 
     """
     host_mac_addr = global_state.host_mac_addr
 
-    if victim_ip_addr == dest_ip_addr:
+    if victim_ip_addr == gateway_ip_addr:
         return
 
     # Do not spoof packets if we're not globally inspecting
@@ -100,22 +100,22 @@ def send_spoofed_arp(victim_mac_addr, victim_ip_addr, dest_mac_addr, dest_ip_add
         if not global_state.is_inspecting:
             return
 
-    # Send ARP spoof request to destination, so that the destination host thinks that Inspector's host is the victim.
+    # Send ARP spoof request to gateway, so that the gateway thinks that Inspector's host is the victim.
 
     dest_arp = sc.ARP()
-    dest_arp.op = 1
+    dest_arp.op = 2
     dest_arp.psrc = victim_ip_addr
     dest_arp.hwsrc = host_mac_addr
-    dest_arp.pdst = dest_ip_addr
-    dest_arp.hwdst = dest_mac_addr
+    dest_arp.pdst = gateway_ip_addr
+    dest_arp.hwdst = gateway_mac_addr
 
     sc.send(dest_arp, iface=global_state.host_active_interface, verbose=0)
 
-    # Send ARP spoof request to victim, so that the victim thinks that Inspector's host is the destination.
+    # Send ARP spoof request to victim, so that the victim thinks that Inspector's host is the gateway.
 
     victim_arp = sc.ARP()
-    victim_arp.op = 1
-    victim_arp.psrc = dest_ip_addr
+    victim_arp.op = 2
+    victim_arp.psrc = gateway_ip_addr
     victim_arp.hwsrc = host_mac_addr
     victim_arp.pdst = victim_ip_addr
     victim_arp.hwdst = victim_mac_addr
