@@ -138,11 +138,14 @@ def process_dns(pkt):
     if sc.DNSRR in pkt and pkt[sc.DNS].an:
         for ix in range(pkt[sc.DNS].ancount):
             # Extracts A-records
-            if pkt[sc.DNSRR][ix].type == 1:
-                # Extracts IPv4 addr in A-record
-                ip = pkt[sc.DNSRR][ix].rdata
-                if networking.is_ipv4_addr(ip):
-                    ip_set.add(ip)
+            try:
+                if pkt[sc.DNSRR][ix].type == 1:
+                    # Extracts IPv4 addr in A-record
+                    ip = pkt[sc.DNSRR][ix].rdata
+                    if networking.is_ipv4_addr(ip):
+                        ip_set.add(ip)
+            except IndexError:
+                pass
 
     # If we don't have an IP address, that's fine. We'll still store the domain queried, setting the IP address to empty.
     if not ip_set:
