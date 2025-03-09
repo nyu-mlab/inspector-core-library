@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def start():
 
     # Obtain the IP range
-    with global_state.global_state_lock
+    with global_state.global_state_lock:
         ip_range = global_state.ip_range
 
     logger.info(f'[ARP Scanner] Scanning {len(ip_range)} IP addresses.')

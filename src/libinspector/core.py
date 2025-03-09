@@ -13,6 +13,7 @@ from . import networking
 from . import safe_loop
 from . import arp_scanner
 from . import packet_collector
+from . import packet_processor
 
 
 def start_threads():
@@ -30,7 +31,7 @@ def start_threads():
     # Initialize the database
     logger.info('[core] Initializing the database')
     with global_state.global_state_lock:
-        global_state.db_conn_and_lock = mem_db.init_db()
+        global_state.db_conn_and_lock = mem_db.initialize_db()
 
     # Initialize the networking variables
     logger.info('[core] Initializing the networking variables')
@@ -43,30 +44,31 @@ def start_threads():
     # Update the network info from the OS every 60 seconds
     safe_loop.SafeLoopThread(networking.update_network_info, sleep_time=60)
 
-
-
     # Discover devices on the network every 10 seconds
     safe_loop.SafeLoopThread(arp_scanner.start, sleep_time=10)
 
+    # Collect and process packets from the network
+    safe_loop.SafeLoopThread(packet_collector.start)
+    safe_loop.SafeLoopThread(packet_processor.start)
 
-    core.common.SafeLoopThread(core.arp_scanner.start_arp_scanner, sleep_time=5)
-    core.common.SafeLoopThread(core.packet_collector.start_packet_collector, sleep_time=0)
-    core.common.SafeLoopThread(core.packet_processor.process_packet, sleep_time=0)
-    core.common.SafeLoopThread(core.arp_spoofer.spoof_internet_traffic, sleep_time=5)
-    core.common.SafeLoopThread(core.friendly_organizer.add_hostname_info_to_flows, sleep_time=5)
-    core.common.SafeLoopThread(core.friendly_organizer.add_product_info_to_devices, sleep_time=5)
-    core.common.SafeLoopThread(core.data_donation.start, sleep_time=15)
+    # core.common.SafeLoopThread(core.arp_scanner.start_arp_scanner, sleep_time=5)
+    # core.common.SafeLoopThread(core.packet_collector.start_packet_collector, sleep_time=0)
+    # core.common.SafeLoopThread(core.packet_processor.process_packet, sleep_time=0)
+    # core.common.SafeLoopThread(core.arp_spoofer.spoof_internet_traffic, sleep_time=5)
+    # core.common.SafeLoopThread(core.friendly_organizer.add_hostname_info_to_flows, sleep_time=5)
+    # core.common.SafeLoopThread(core.friendly_organizer.add_product_info_to_devices, sleep_time=5)
+    # core.common.SafeLoopThread(core.data_donation.start, sleep_time=15)
 
-    core.common.log('[core] Inspector started')
+    # core.common.log('[core] Inspector started')
 
 
 
 def clean_up():
 
-    core.networking.disable_ip_forwarding()
+    networking.disable_ip_forwarding()
 
 
-def init():
+def main():
     """
     Execute this function to start Inspector as a standalone application from the command line.
 
@@ -86,3 +88,7 @@ def init():
         pass
 
     clean_up()
+
+
+if __name__ == '__main__':
+    main()

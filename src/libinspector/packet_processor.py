@@ -12,7 +12,7 @@ from . import networking
 logger = logging.getLogger(__name__)
 
 
-def process_packet():
+def start():
 
     pkt = global_state.packet_queue.get()
 

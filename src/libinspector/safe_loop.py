@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 class SafeLoopThread(object):
 
-    def __init__(self, func, args=[], kwargs={}, sleep_time=1) -> None:
+    def __init__(self, func, args=[], kwargs={}, sleep_time=0) -> None:
 
         self._func = func
         self._func_args = args
@@ -55,4 +55,5 @@ class SafeLoopThread(object):
                 sys.stderr.write(err_msg + '\n')
                 logger.error(err_msg)
 
-                time.sleep(self._sleep_time)
+                if self._sleep_time:
+                    time.sleep(self._sleep_time)

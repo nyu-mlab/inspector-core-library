@@ -6,14 +6,14 @@ import scapy.all as sc
 from . import global_state
 
 
+sc.load_layer('tls')
 
-def start_packet_collector():
+
+def start():
 
     with global_state.global_state_lock:
         host_active_interface = global_state.host_active_interface
         host_ip_addr = global_state.host_ip_addr
-
-    sc.load_layer('tls')
 
     # Continuously sniff packets for 30 second intervals (as sniff might crash).
     # Also, avoid capturing packets to/from the host itself, except ARP, which
