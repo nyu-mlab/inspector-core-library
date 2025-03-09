@@ -7,7 +7,12 @@ import sqlite3
 import threading
 
 
-use_in_memory_db_for_internal_bookkeeping = False # TODO set to True
+# Use the in-memory SQL database to store devices and network flows; defaults to True
+USE_IN_MEMORY_DB = False # TODO Set to True
+
+# Inspector should ARP spoof every device by default; defaults to False
+INSPECT_EVERY_DEVICE_BY_DEFAULT = True # TODO Set to False
+
 
 debug_db_path = 'debug_mem_db.db'
 
@@ -18,7 +23,7 @@ def initialize_db():
 
     """
     db_uri = ':memory:'
-    if not use_in_memory_db_for_internal_bookkeeping:
+    if not USE_IN_MEMORY_DB:
         db_uri = debug_db_path
 
     # Connect to an in-memory SQLite database
@@ -32,13 +37,14 @@ def initialize_db():
         cursor = conn.cursor()
 
         # Create the devices table
-        cursor.execute('''
+        cursor.execute(f'''
             CREATE TABLE devices (
                 mac_address TEXT PRIMARY KEY,
                 ip_address TEXT NOT NULL,
-                is_inspected INTEGER DEFAULT 0,
+                is_inspected INTEGER DEFAULT {1 if INSPECT_EVERY_DEVICE_BY_DEFAULT else 0},
+                is_gateway INTEGER DEFAULT 0,
                 updated_ts INTEGER DEFAULT 0,
-                metadata_json TEXT DEFAULT '{}'
+                metadata_json TEXT DEFAULT '{{}}'
             )
         ''')
 

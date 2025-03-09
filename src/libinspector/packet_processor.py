@@ -75,17 +75,25 @@ def process_arp(pkt):
     ip_addr = pkt.psrc
     mac_addr = pkt.hwsrc
 
+    # Check if this is the gateway
+    with global_state.global_state_lock:
+        if ip_addr == global_state.gateway_ip_addr:
+            is_gateway = 1
+        else:
+            is_gateway = 0
+
     # Insert or update the ip_addr and mac_addr in the devices table
     current_ts = int(time.time())
     conn, rw_lock = global_state.db_conn_and_lock
     with rw_lock:
         conn.execute('''
-            INSERT INTO devices (mac_address, ip_address, updated_ts)
-            VALUES (?, ?, ?)
+            INSERT INTO devices (mac_address, ip_address, updated_ts, is_gateway)
+            VALUES (?, ?, ?, ?)
             ON CONFLICT(mac_address) DO UPDATE SET
                 ip_address=excluded.ip_address,
-                updated_ts=excluded.updated_ts
-        ''', (mac_addr, ip_addr, current_ts))
+                updated_ts=excluded.updated_ts,
+                is_gateway=excluded.is_gateway
+        ''', (mac_addr, ip_addr, current_ts, is_gateway))
         conn.commit()
 
 
@@ -217,7 +225,7 @@ def process_flow(pkt):
             INSERT INTO network_flows (
                 timestamp, src_ip_address, dest_ip_address, src_mac_address, dest_mac_address,
                 src_port, dest_port, protocol, byte_count, packet_count
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (
                 timestamp, src_mac_address, dest_mac_address, src_ip_address, dest_ip_address,
                 src_port, dest_port, protocol
@@ -226,7 +234,7 @@ def process_flow(pkt):
                 packet_count = packet_count + excluded.packet_count
         ''', (
             current_ts, src_ip_addr, dst_ip_addr, src_mac_addr, dst_mac_addr,
-            src_port, dst_port, protocol, len(pkt), 1,
+            src_port, dst_port, protocol, len(pkt), 1
         ))
         conn.commit()
 
@@ -253,6 +261,7 @@ def process_dhcp(pkt):
         return
 
     device_mac = pkt[sc.Ether].src
+    device_ip = pkt[sc.IP].src
 
     # Ignore DHCP responses from this host
     if device_mac == global_state.host_mac_addr:
@@ -263,11 +272,12 @@ def process_dhcp(pkt):
     conn, rw_lock = global_state.db_conn_and_lock
     with rw_lock:
         conn.execute('''
-            INSERT INTO devices (mac_address, metadata_json)
-            VALUES (?, ?)
+            INSERT INTO devices (mac_address, ip_address, metadata_json)
+            VALUES (?, ?, ?)
             ON CONFLICT(mac_address) DO UPDATE SET
-                metadata_json = json_patch(devices.metadata_json, excluded.metadata_json)
-        ''', (device_mac, json.dumps(device_metadata_dict)))
+                metadata_json = json_patch(devices.metadata_json, excluded.metadata_json),
+                ip_address = excluded.ip_address
+        ''', (device_mac, device_ip, json.dumps(device_metadata_dict)))
         conn.commit()
 
     logger.info(f'[Pkt Processor] DHCP: Device {device_mac}: {device_hostname}')

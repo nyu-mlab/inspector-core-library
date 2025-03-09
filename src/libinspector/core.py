@@ -14,6 +14,7 @@ from . import safe_loop
 from . import arp_scanner
 from . import packet_collector
 from . import packet_processor
+from . import arp_spoof
 
 
 def start_threads():
@@ -50,6 +51,9 @@ def start_threads():
     # Collect and process packets from the network
     safe_loop.SafeLoopThread(packet_collector.start)
     safe_loop.SafeLoopThread(packet_processor.start)
+
+    # Spoof internet traffic
+    safe_loop.SafeLoopThread(arp_spoof.start, sleep_time=0.5)
 
     # core.common.SafeLoopThread(core.arp_scanner.start_arp_scanner, sleep_time=5)
     # core.common.SafeLoopThread(core.packet_collector.start_packet_collector, sleep_time=0)

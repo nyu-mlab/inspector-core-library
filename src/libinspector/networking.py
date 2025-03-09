@@ -31,9 +31,11 @@ def get_mac_address_from_ip(ip_addr: str) -> str:
         result = conn.execute(sql, (ip_addr,)).fetchone()
 
     if result is None:
-        return result[0]
+        raise KeyError(f'No MAC address found for IP address {ip_addr}')
 
-    raise KeyError(f'No MAC address found for IP address {ip_addr}')
+    return result['mac_address']
+
+
 
 
 def get_ip_address_from_mac(mac_addr: str) -> str:

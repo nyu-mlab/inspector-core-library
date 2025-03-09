@@ -9,7 +9,7 @@ import queue
 # Should be held whenever accessing the global state's variables.
 global_state_lock = threading.Lock()
 
-# Network variables
+# Network variables set up update_network_info
 host_ip_addr = ''
 host_mac_addr = ''
 host_active_interface = ''

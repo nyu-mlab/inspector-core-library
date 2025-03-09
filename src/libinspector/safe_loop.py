@@ -39,8 +39,6 @@ class SafeLoopThread(object):
 
         while True:
 
-            logger.info('[SafeLoopThread] Starting %s %s %s' % (self._func, self._func_args, self._func_kwargs))
-
             try:
                 self._func(*self._func_args, **self._func_kwargs)
 
@@ -55,5 +53,6 @@ class SafeLoopThread(object):
                 sys.stderr.write(err_msg + '\n')
                 logger.error(err_msg)
 
+            finally:
                 if self._sleep_time:
                     time.sleep(self._sleep_time)
