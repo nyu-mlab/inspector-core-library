@@ -14,7 +14,8 @@ setup(
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/nyu-mlab/inspector-core-library',
-    packages=find_packages(),
+    packages=find_packages(where='src'),
+    package_dir={'': 'src'},
     package_data={
         'libinspector': ['wireshark_oui_database.txt'],
     },
