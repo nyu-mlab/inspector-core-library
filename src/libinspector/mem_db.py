@@ -27,7 +27,7 @@ def initialize_db():
         db_uri = debug_db_path
 
     # Connect to an in-memory SQLite database
-    conn = sqlite3.connect(db_uri, check_same_thread=False)
+    conn = sqlite3.connect(db_uri, check_same_thread=False, isolation_level=None)
     conn.row_factory = sqlite3.Row
 
     # Create a lock for thread-safe access
@@ -49,24 +49,19 @@ def initialize_db():
         ''')
 
         # Create indexes on ip_address and is_inspected separately
-        cursor.execute('CREATE INDEX idx_ip_address ON devices(ip_address)')
-        cursor.execute('CREATE INDEX idx_is_inspected ON devices(is_inspected)')
+        cursor.execute('CREATE INDEX idx_devices_ip_address ON devices(ip_address)')
+        cursor.execute('CREATE INDEX idx_devices_is_inspected ON devices(is_inspected)')
 
         # Create the hostnames table
         cursor.execute('''
             CREATE TABLE hostnames (
-                device_mac_address TEXT NOT NULL,
-                ip_address TEXT,
+                ip_address TEXT PRIMARY KEY,
                 hostname TEXT NOT NULL,
                 updated_ts INTEGER DEFAULT 0,
                 data_source TEXT NOT NULL,
-                metadata_json TEXT DEFAULT '{}',
-                PRIMARY KEY (device_mac_address, ip_address, hostname)
+                metadata_json TEXT DEFAULT '{}'
             )
         ''')
-
-        # Create an index on the hostnames
-        cursor.execute('CREATE INDEX idx_hostnames_hostname ON hostnames(hostname)')
 
         # Create the network flows table, with a compound primary key as the flow_key
         cursor.execute('''
@@ -74,6 +69,8 @@ def initialize_db():
                 timestamp INTEGER,
                 src_ip_address TEXT,
                 dest_ip_address TEXT,
+                src_hostname TEXT,
+                dest_hostname TEXT,
                 src_mac_address TEXT,
                 dest_mac_address TEXT,
                 src_port TEXT,
@@ -92,7 +89,11 @@ def initialize_db():
             )
         ''')
 
-        conn.commit()
+        # Create indexes on src_ip_address, dest_ip_address, src_hostname, and dest_hostname
+        cursor.execute('CREATE INDEX idx_network_flows_src_ip_address ON network_flows(src_ip_address)')
+        cursor.execute('CREATE INDEX idx_network_flows_dest_ip_address ON network_flows(dest_ip_address)')
+        cursor.execute('CREATE INDEX idx_network_flows_src_hostname ON network_flows(src_hostname)')
+        cursor.execute('CREATE INDEX idx_network_flows_dest_hostname ON network_flows(dest_hostname)')
 
     return conn, rw_lock
 

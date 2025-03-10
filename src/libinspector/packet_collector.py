@@ -3,10 +3,16 @@ Captures and analyzes packets from the network.
 
 """
 import scapy.all as sc
+import time
+import logging
+
 from . import global_state
 
+logger = logging.getLogger(__name__)
 
 sc.load_layer('tls')
+
+print_queue_size_dict = {'last_updated_ts': 0}
 
 
 def start():
@@ -46,3 +52,9 @@ def add_packet_to_queue(pkt):
             return
 
     global_state.packet_queue.put(pkt)
+
+    # Print the queue size every 10 seconds
+    current_time = time.time()
+    if current_time - print_queue_size_dict['last_updated_ts'] > 10:
+        logger.info(f'[packet_collector] Packet queue size: {global_state.packet_queue.qsize()}')
+        print_queue_size_dict['last_updated_ts'] = current_time

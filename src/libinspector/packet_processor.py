@@ -11,6 +11,11 @@ from . import networking
 
 logger = logging.getLogger(__name__)
 
+update_hostnames_in_flows_status_dict = {
+    'last_update_ts': 0
+}
+
+
 
 def start():
 
@@ -94,7 +99,6 @@ def process_arp(pkt):
                 updated_ts=excluded.updated_ts,
                 is_gateway=excluded.is_gateway
         ''', (mac_addr, ip_addr, current_ts, is_gateway))
-        conn.commit()
 
 
 
@@ -159,19 +163,20 @@ def write_hostname_ip_mapping_to_db(device_mac_addr, hostname, ip_set, data_sour
     current_ts = int(time.time())
 
     conn, rw_lock = global_state.db_conn_and_lock
-    total_affected_row_count = 0
 
     with rw_lock:
         for ip_addr in ip_set:
-            updated_row_count = conn.execute('''
-                INSERT INTO hostnames (device_mac_address, hostname, ip_address, data_source, updated_ts)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(device_mac_address, ip_address, hostname) DO NOTHING
-            ''', (device_mac_addr, hostname, ip_addr, data_source, current_ts)).rowcount
-            total_affected_row_count += updated_row_count
+            conn.execute('''
+                INSERT INTO hostnames (ip_address, hostname, updated_ts, data_source)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(ip_address) DO UPDATE SET
+                    hostname=excluded.hostname,
+                    updated_ts=excluded.updated_ts,
+                    data_source=excluded.data_source
+            ''', (ip_addr, hostname, current_ts, data_source))
 
-    if total_affected_row_count > 0:
-        logger.info(f'[Pkt Processor] Device {device_mac_addr}: {hostname} -> {ip_set} (data_source: {data_source})')
+    logger.info(f'[Pkt Processor] Device {device_mac_addr}: {hostname} -> {ip_set} (data_source: {data_source})')
+
 
 
 def process_flow(pkt):
@@ -239,8 +244,51 @@ def process_flow(pkt):
             current_ts, src_ip_addr, dst_ip_addr, src_mac_addr, dst_mac_addr,
             src_port, dst_port, protocol, len(pkt), 1
         ))
-        conn.commit()
 
+    update_hostnames_in_flows()
+
+
+def update_hostnames_in_flows():
+    """
+    Every 2 seconds, we replace the ip_addresses with the hostnames from the hostnames table.
+
+    """
+    if time.time() - update_hostnames_in_flows_status_dict['last_update_ts'] < 2:
+        return
+
+    conn, rw_lock = global_state.db_conn_and_lock
+
+    with rw_lock:
+        sql = '''
+            UPDATE network_flows
+            SET src_hostname = (
+                SELECT hostnames.hostname
+                FROM hostnames
+                WHERE hostnames.ip_address = network_flows.src_ip_address
+            ),
+            dest_hostname = (
+                SELECT hostnames.hostname
+                FROM hostnames
+                WHERE hostnames.ip_address = network_flows.dest_ip_address
+            )
+            WHERE EXISTS (
+                SELECT 1
+                FROM hostnames
+                WHERE
+                    (
+                        hostnames.ip_address = network_flows.src_ip_address OR
+                        hostnames.ip_address = network_flows.dest_ip_address
+                    ) AND (
+                        network_flows.src_hostname IS NULL OR
+                        network_flows.dest_hostname IS NULL
+                    )
+            );
+        '''
+        row_count = conn.execute(sql).rowcount
+
+    update_hostnames_in_flows_status_dict['last_update_ts'] = time.time()
+
+    logger.info(f'[Pkt Processor] Updated {row_count} rows in network_flows with hostnames.')
 
 
 def process_dhcp(pkt):
@@ -281,7 +329,6 @@ def process_dhcp(pkt):
                 metadata_json = json_patch(devices.metadata_json, excluded.metadata_json),
                 ip_address = excluded.ip_address
         ''', (device_mac, device_ip, json.dumps(device_metadata_dict)))
-        conn.commit()
 
     logger.info(f'[Pkt Processor] DHCP: Device {device_mac}: {device_hostname}')
 
