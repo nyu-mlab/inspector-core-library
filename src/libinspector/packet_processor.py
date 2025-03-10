@@ -216,12 +216,12 @@ def process_flow(pkt):
         try:
             src_mac_addr = networking.get_mac_address_from_ip(src_ip_addr)
         except KeyError:
-            src_mac_addr = ''
+            return
     elif dst_mac_addr == inspector_host_mac_addr:
         try:
             dst_mac_addr = networking.get_mac_address_from_ip(dst_ip_addr)
         except KeyError:
-            dst_mac_addr = ''
+            return
     else:
         return
 
