@@ -55,16 +55,9 @@ def start_threads():
     # Spoof internet traffic
     safe_loop.SafeLoopThread(arp_spoof.start, sleep_time=0.5)
 
-    # core.common.SafeLoopThread(core.arp_scanner.start_arp_scanner, sleep_time=5)
-    # core.common.SafeLoopThread(core.packet_collector.start_packet_collector, sleep_time=0)
-    # core.common.SafeLoopThread(core.packet_processor.process_packet, sleep_time=0)
-    # core.common.SafeLoopThread(core.arp_spoofer.spoof_internet_traffic, sleep_time=5)
-    # core.common.SafeLoopThread(core.friendly_organizer.add_hostname_info_to_flows, sleep_time=5)
-    # core.common.SafeLoopThread(core.friendly_organizer.add_product_info_to_devices, sleep_time=5)
-    # core.common.SafeLoopThread(core.data_donation.start, sleep_time=15)
+    # TODO Start the mDNS and UPnP scanner threads
 
-    # core.common.log('[core] Inspector started')
-
+    logger.info('[core] Inspector started')
 
 
 def clean_up():

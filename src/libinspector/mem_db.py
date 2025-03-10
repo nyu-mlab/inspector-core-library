@@ -8,10 +8,10 @@ import threading
 
 
 # Use the in-memory SQL database to store devices and network flows; defaults to True
-USE_IN_MEMORY_DB = False # TODO Set to True
+USE_IN_MEMORY_DB = True # TODO Set to True
 
 # Inspector should ARP spoof every device by default; defaults to False
-INSPECT_EVERY_DEVICE_BY_DEFAULT = True # TODO Set to False
+INSPECT_EVERY_DEVICE_BY_DEFAULT = False # TODO Set to False
 
 
 debug_db_path = 'debug_mem_db.db'
