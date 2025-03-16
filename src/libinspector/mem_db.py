@@ -7,16 +7,12 @@ import sqlite3
 import threading
 
 from .oui_parser import get_vendor
-
-# TODO Use a config file for below settings
-
-# Use the in-memory SQL database to store devices and network flows; defaults to True
-USE_IN_MEMORY_DB = True # TODO Set to True
-
-# Inspector should ARP spoof every device by default; defaults to False
-INSPECT_EVERY_DEVICE_BY_DEFAULT = False # TODO Set to False
+from . import local_config
 
 
+# Writes the in-memory database to disk for debugging purposes, only if the
+# config "use_in_memory_db" is explicitly set to False in the
+# inspector_config.json file
 debug_db_path = 'debug_mem_db.db'
 
 
@@ -26,7 +22,7 @@ def initialize_db():
 
     """
     db_uri = ':memory:'
-    if not USE_IN_MEMORY_DB:
+    if not local_config.get('use_in_memory_db', True):
         db_uri = debug_db_path
 
     # Connect to an in-memory SQLite database
@@ -36,6 +32,9 @@ def initialize_db():
     # Create a lock for thread-safe access
     rw_lock = threading.Lock()
 
+    # Should we arp-spoof every device we discovered via ARP scanning?
+    inspect_every_device_by_default = local_config.get('inspect_every_device_by_default', False)
+
     with rw_lock:
         cursor = conn.cursor()
 
@@ -44,7 +43,7 @@ def initialize_db():
             CREATE TABLE devices (
                 mac_address TEXT PRIMARY KEY,
                 ip_address TEXT NOT NULL,
-                is_inspected INTEGER DEFAULT {1 if INSPECT_EVERY_DEVICE_BY_DEFAULT else 0},
+                is_inspected INTEGER DEFAULT {1 if inspect_every_device_by_default else 0},
                 is_gateway INTEGER DEFAULT 0,
                 updated_ts INTEGER DEFAULT 0,
                 metadata_json TEXT DEFAULT '{{}}'

@@ -190,10 +190,7 @@ def write_hostname_ip_mapping_to_db(device_mac_addr, hostname, ip_set, data_sour
 
 
 def process_flow(pkt):
-    """
-    TODO: We might see double the flow count because we are processing the same packet twice. Need to fix.
 
-    """
     # Must have TCP or UDP layer
     if sc.TCP in pkt:
         protocol = 'tcp'
