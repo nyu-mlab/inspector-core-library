@@ -6,6 +6,9 @@ flow data.
 import sqlite3
 import threading
 
+from .oui_parser import get_vendor
+
+# TODO Use a config file for below settings
 
 # Use the in-memory SQL database to store devices and network flows; defaults to True
 USE_IN_MEMORY_DB = True # TODO Set to True
@@ -94,6 +97,9 @@ def initialize_db():
         cursor.execute('CREATE INDEX idx_network_flows_dest_ip_address ON network_flows(dest_ip_address)')
         cursor.execute('CREATE INDEX idx_network_flows_src_hostname ON network_flows(src_hostname)')
         cursor.execute('CREATE INDEX idx_network_flows_dest_hostname ON network_flows(dest_hostname)')
+
+        # Define a SQLite UDF to parse the OUI from the MAC address
+        conn.create_function('get_oui_vendor', 1, get_vendor)
 
     return conn, rw_lock
 

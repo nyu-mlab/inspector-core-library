@@ -100,6 +100,16 @@ def process_arp(pkt):
                 is_gateway=excluded.is_gateway
         ''', (mac_addr, ip_addr, current_ts, is_gateway))
 
+    # Update the OUI vendors
+    with rw_lock:
+        conn.execute('''
+            UPDATE devices
+            SET metadata_json = json_patch(
+                metadata_json,
+                json_object('oui_vendor', get_oui_vendor(mac_address))
+            )
+            WHERE json_extract(metadata_json, '$.oui_vendor') IS NULL
+        ''')
 
 
 def process_dns(pkt):
