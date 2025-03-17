@@ -15,6 +15,7 @@ from . import arp_scanner
 from . import packet_collector
 from . import packet_processor
 from . import arp_spoof
+from . import ssdp_discovery
 
 
 def start_threads():
@@ -55,7 +56,8 @@ def start_threads():
     # Spoof internet traffic
     safe_loop.SafeLoopThread(arp_spoof.start, sleep_time=0.5)
 
-    # TODO Start the mDNS and UPnP scanner threads
+    # Start the mDNS and UPnP scanner threads
+    safe_loop.SafeLoopThread(ssdp_discovery.start, sleep_time=1)
 
     logger.info('[core] Inspector started')
 
