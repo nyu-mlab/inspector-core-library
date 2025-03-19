@@ -16,6 +16,7 @@ from . import packet_collector
 from . import packet_processor
 from . import arp_spoof
 from . import ssdp_discovery
+from . import mdns_discovery
 
 
 def start_threads():
@@ -58,6 +59,7 @@ def start_threads():
 
     # Start the mDNS and UPnP scanner threads
     safe_loop.SafeLoopThread(ssdp_discovery.start, sleep_time=1)
+    safe_loop.SafeLoopThread(mdns_discovery.start, sleep_time=1)
 
     logger.info('[core] Inspector started')
 
