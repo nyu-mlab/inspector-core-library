@@ -20,6 +20,10 @@ from . import mdns_discovery
 
 
 def start_threads():
+    """
+    Main entry point if you use libinspector in your package.
+
+    """
 
     # Make sure that only one single instance of Inspector core is running
     with global_state.global_state_lock:

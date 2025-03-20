@@ -9,13 +9,6 @@ To install the `libinspector` module via `pip` from GitHub, use the following co
 pip install git+https://github.com/nyu-mlab/inspector-core-library.git
 ```
 
-### Installing Requirements
-
-Make sure to install the required dependencies listed in the `requirements.txt` file:
-
-```sh
-pip install -r requirements.txt
-```
 
 ## Usage
 
@@ -27,10 +20,20 @@ To run the Inspector, you need to activate the virtual environment first and the
 sudo python -m libinspector.core
 ```
 
-By default, the traffic is saved in an in-memory SQLite database, so you won't see the data directly. For debugging purposes, you can modify the configuration:
+By default, the traffic is saved in an in-memory SQLite database, so you won't see the data directly. Also, none of the devices are inspected by default. For debugging purposes, you can have `libinspector` dump the internal SQLite database to disk and inspect (i.e., ARP-spoof) traffic for ALL devices by doing the following:
 
-- Set `USE_IN_MEMORY_DB` to `False` to write traffic to a file.
-- Set `INSPECT_EVERY_DEVICE_BY_DEFAULT` to `True` to inspect (ARP-spoof) every device automatically.
+1. Create a file `libinspector_config.json` in the same directory where you run `sudo python -m libinspector.core` (or where you import `libinspector` as a part of your package).
+
+2. Edit this json file to include the following text:
+```json
+  {
+      "use_in_memory_db": false,
+      "inspect_every_device_by_default": true
+  }
+```
+
+3. Remove the `libinspector_config.json` config file, or flip the above values in production.
+
 
 ### Embedding in Your Own Python Application
 
@@ -101,14 +104,13 @@ The `libinspector` module works by starting various threads to monitor and inspe
    - Discover devices on the network every 10 seconds.
    - Collect and process packets from the network.
    - Spoof internet traffic.
-   - (TODO) Start the mDNS and UPnP scanner threads.
+   - Start the mDNS and UPnP scanner threads.
 
 
 ## Notes
 
-TODOs:
- - mDNS and UPnP scans
- - OUI replacement
+TODO:
+ - Publish to PyPI.
 
 
 ## Contributing
@@ -118,3 +120,8 @@ Contributions are welcome! Please feel free to submit a pull request or open an 
 ## License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
+
+## Contact
+
+Ask Prof. Danny Y. Huang (dhuang@nyu.edu).
+
