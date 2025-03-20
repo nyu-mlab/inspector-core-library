@@ -14,7 +14,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-CONFIG_FILE_PATH = 'inspector_config.json'
+CONFIG_FILE_PATH = 'libinspector_config.json'
 
 
 def get(config_key: str, default=None):
