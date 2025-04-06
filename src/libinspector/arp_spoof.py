@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 # How many seconds between successive ARP spoofing attempts for each host
-INTERNET_SPOOFING_INTERVAL = 2
+INTERNET_SPOOFING_INTERVAL = 10
 
 
 spoof_stat_dict = {
