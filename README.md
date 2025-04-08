@@ -17,7 +17,13 @@ pip install git+https://github.com/nyu-mlab/inspector-core-library.git
 To run the Inspector, you need to activate the virtual environment first and then run the following command:
 
 ```sh
-sudo python -m libinspector.core
+sudo $(which python) -m libinspector.core
+```
+
+If you're debugging, you can run the following to reset the database and start the Inspector:
+
+```sh
+sudo truncate -s 0 inspector.log; sudo rm -f debug_mem_db.db; sudo $(which python) -m libinspector.core
 ```
 
 By default, the traffic is saved in an in-memory SQLite database, so you won't see the data directly. Also, none of the devices are inspected by default. For debugging purposes, you can have `libinspector` dump the internal SQLite database to disk and inspect (i.e., ARP-spoof) traffic for ALL devices by doing the following:
