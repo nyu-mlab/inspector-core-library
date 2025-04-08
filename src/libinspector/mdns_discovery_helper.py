@@ -117,7 +117,6 @@ def get_mdns_devices(service_type_discovery_timeout=10, device_discovery_timeout
 
 if __name__ == "__main__":
 
-    import json
     device_dict = get_mdns_devices(
         service_type_discovery_timeout=5,
         device_discovery_timeout=5
