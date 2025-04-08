@@ -62,8 +62,8 @@ def start_threads():
     safe_loop.SafeLoopThread(arp_spoof.start, sleep_time=1)
 
     # Start the mDNS and UPnP scanner threads
-    safe_loop.SafeLoopThread(ssdp_discovery.start, sleep_time=1)
-    safe_loop.SafeLoopThread(mdns_discovery.start, sleep_time=1)
+    safe_loop.SafeLoopThread(ssdp_discovery.start, sleep_time=5)
+    safe_loop.SafeLoopThread(mdns_discovery.start, sleep_time=5)
 
     logger.info('[core] Inspector started')
 
