@@ -209,6 +209,12 @@ def process_flow(pkt):
     src_port = pkt[layer].sport
     dst_port = pkt[layer].dport
 
+    # Extract the TCP sequence number
+    if sc.TCP in pkt:
+        tcp_seq = pkt[sc.TCP].seq
+    else:
+        tcp_seq = 0
+
     # No broadcast
     if dst_mac_addr == 'ff:ff:ff:ff:ff:ff' or dst_ip_addr == '255.255.255.255':
         return
@@ -239,17 +245,24 @@ def process_flow(pkt):
         conn.execute('''
             INSERT INTO network_flows (
                 timestamp, src_ip_address, dest_ip_address, src_mac_address, dest_mac_address,
-                src_port, dest_port, protocol, byte_count, packet_count
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                src_port, dest_port, protocol, byte_count, packet_count, metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, json_object('tcp_seq_min', ?, 'tcp_seq_max', ?))
             ON CONFLICT (
                 timestamp, src_mac_address, dest_mac_address, src_ip_address, dest_ip_address,
                 src_port, dest_port, protocol
             ) DO UPDATE SET
                 byte_count = byte_count + excluded.byte_count,
-                packet_count = packet_count + excluded.packet_count
+                packet_count = packet_count + excluded.packet_count,
+                metadata_json = json_patch(
+                    metadata_json,
+                    json_object(
+                        'tcp_seq_min', MIN(json_extract(metadata_json, '$.tcp_seq_min'), excluded.metadata_json->>'$.tcp_seq_min'),
+                        'tcp_seq_max', MAX(json_extract(metadata_json, '$.tcp_seq_max'), excluded.metadata_json->>'$.tcp_seq_max')
+                    )
+                )
         ''', (
             current_ts, src_ip_addr, dst_ip_addr, src_mac_addr, dst_mac_addr,
-            src_port, dst_port, protocol, len(pkt), 1
+            src_port, dst_port, protocol, len(pkt), 1, tcp_seq, tcp_seq
         ))
 
     update_hostnames_in_flows()
