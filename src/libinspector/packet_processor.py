@@ -30,6 +30,15 @@ def start():
 
 def process_packet_helper(pkt):
 
+    with global_state.global_state_lock:
+        pkt_callback_func = global_state.custom_packet_callback_func
+
+    if pkt_callback_func is not None:
+        try:
+            pkt_callback_func(pkt)
+        except Exception as e:
+            logger.error(f'[Pkt Processor] Custom packet callback function raised an error: {e} for packet: {pkt}\n{traceback.format_exc()}')
+
     # ====================
     # Process individual packets and terminate
     # ====================

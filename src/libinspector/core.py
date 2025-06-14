@@ -19,7 +19,7 @@ from . import ssdp_discovery
 from . import mdns_discovery
 
 
-def start_threads():
+def start_threads(custom_packet_callback_func=None):
     """
     Main entry point if you use libinspector in your package.
 
@@ -32,6 +32,7 @@ def start_threads():
             return
         global_state.inspector_started[0] = True
         global_state.inspector_started_ts = time.time()
+        global_state.custom_packet_callback_func = custom_packet_callback_func
 
     logger.info('[core] Starting Inspector')
 

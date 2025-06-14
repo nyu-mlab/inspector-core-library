@@ -35,3 +35,5 @@ inspector_started_ts = 0
 # A queue that holds packets to be processed
 packet_queue = queue.Queue()
 
+# A custom callback function for packet processing
+custom_packet_callback_func = None

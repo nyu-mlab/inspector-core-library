@@ -63,6 +63,15 @@ while True:
 
 ```
 
+If you want to add additional packet parsing capabilities, you can specific a custom callback when you start Inspector. Here's an example that prints out the summary of each captured packet:
+
+```python
+libinspector.core.start_threads(
+  custom_packet_callback_func=lambda pkt: print(f'Packet captured: {pkt.summary()}')
+)
+
+```
+
 ### Data Schema
 
 The data schema is defined in `mem_db.py` and includes the following tables:
