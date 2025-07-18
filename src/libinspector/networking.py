@@ -36,17 +36,11 @@ import scapy.all as sc
 import netifaces
 import netaddr
 import logging
-import os
 
 from . import global_state
 from . import common
 
 logger = logging.getLogger(__name__)
-
-# Ensure that we are running as root
-if os.geteuid() != 0:
-    logger.error('[networking] Inspector must be run as root to enable IP forwarding.')
-    sys.exit(1)
 
 
 def get_mac_address_from_ip(ip_addr: str) -> str:

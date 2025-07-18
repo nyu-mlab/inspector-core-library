@@ -1,7 +1,14 @@
 import unittest
 import subprocess
+import sys
 import libinspector.common as common
 import libinspector.networking as networking
+
+
+# Make sure we're running as root
+if not common.is_admin():
+    print('All tests must be run as root. Exiting.')
+    sys.exit(1)
 
 
 def run_command(command):

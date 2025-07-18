@@ -21,6 +21,7 @@ Typical usage:
 """
 import logging
 import time
+import sys
 from . import global_state
 from . import mem_db
 from . import networking
@@ -31,6 +32,7 @@ from . import packet_processor
 from . import arp_spoof
 from . import ssdp_discovery
 from . import mdns_discovery
+from . import common
 
 LOG_FILE = 'inspector.log'
 
@@ -132,6 +134,10 @@ def main():
     Returns:
         None
     """
+    # Ensure that we are running as root
+    if not common.is_admin():
+        logger.error('[networking] Inspector must be run as root to enable IP forwarding.')
+        sys.exit(1)
 
     start_threads()
 
