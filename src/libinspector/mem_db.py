@@ -1,7 +1,21 @@
 """
-Defines an in-memory SQLite database for storing device, hostname, and network
-flow data.
+In-Memory SQLite Database Utilities.
 
+This module defines and initializes an in-memory SQLite database for storing device,
+hostname, and network flow data used by the Inspector application. The database schema
+includes tables for devices, hostnames, and network flows, with appropriate indexes
+to optimize query performance. Optionally, the database can be persisted to disk for
+debugging if configured in `inspector_config.json`.
+
+Key Features:
+- In-memory or on-disk SQLite database based on configuration.
+- Thread-safe access using a lock for concurrent operations.
+- Tables for devices, hostnames, and network flows with relevant indexes.
+- Integration with OUI vendor lookup via a custom SQLite function.
+- Designed for fast, temporary storage of network monitoring data.
+
+Intended Usage:
+Call `initialize_db()` to create and access the database connection and lock.
 """
 import sqlite3
 import threading
@@ -18,8 +32,28 @@ debug_db_path = 'debug_mem_db.db'
 
 def initialize_db():
     """
-    Returns the connection and rw_lock to an in-memory SQLite database.
+    Initialize and returns an in-memory (or optionally on-disk) SQLite database for network data.
 
+    This function sets up the database schema with tables for devices, hostnames, and network flows,
+    including indexes for efficient querying. It also registers a custom SQLite function for OUI
+    vendor lookup. Thread safety is provided via a lock, allowing safe concurrent access.
+
+    Returns:
+        tuple: A tuple `(conn, rw_lock)` where `conn` is the SQLite connection object and `rw_lock`
+        is a threading.Lock instance for synchronizing database access.
+
+    Tables Created:
+        - devices: Stores MAC and IP addresses, inspection status, gateway flag, timestamps, and metadata.
+        - hostnames: Maps IP addresses to hostnames, with update timestamps and metadata.
+        - network_flows: Records network flow data with source/destination info, ports, protocol, and statistics.
+
+    Indexes:
+        - On device IP address and inspection status.
+        - On network flow source/destination IP addresses and hostnames.
+
+    Notes:
+        - If `use_in_memory_db` is False in the configuration, the database is persisted to `debug_mem_db.db`.
+        - The function must be called before any database operations are performed.
     """
     db_uri = ':memory:'
     if not local_config.get('use_in_memory_db', True):

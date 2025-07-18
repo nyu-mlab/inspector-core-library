@@ -1,10 +1,24 @@
 """
-Parsing a local configuration file (read-only).
+Local Configuration File Parser (Read-Only).
 
-The config file should be saved in JSON format as as a file named `inspector_config.json` in the same directory the script is run from.
+This module provides utility functions to read configuration values from a local JSON file,
+intended for use as a read-only configuration source for the Inspector application.
 
-If the config file is not found, or if the key is not found, or if the file is not in JSON format, or if there is any other error, the default value is returned.
+The configuration file should be named `libinspector_config.json` and located in the same
+directory from which the script is run. The module is resilient to missing files, missing
+keys, and malformed JSON: in all such cases, a user-supplied default value is returned.
 
+Features:
+- Reads configuration from a JSON file with caching for efficiency.
+- Returns default values if the file or key is missing, or if the file is not valid JSON.
+- Logs informative messages for file loading, missing files, and errors.
+
+Typical usage:
+    value = get('some_config_key', default=42)
+
+Functions:
+    get(config_key, default=None): Retrieve a configuration value by key.
+    _load_config_file(): Load and cache the configuration file as a dictionary.
 """
 import json
 import functools
@@ -19,9 +33,19 @@ CONFIG_FILE_PATH = 'libinspector_config.json'
 
 def get(config_key: str, default=None):
     """
-    Returns the value of the given configuration key.
-    If the key is not found, the default value is returned.
+    Retrieve the value for a given configuration key from the local config file.
 
+    Args:
+        config_key (str): The key to look up in the configuration file.
+        default (Any, optional): The value to return if the key is not found or if
+            the config file is missing or invalid. Defaults to None.
+
+    Returns:
+        Any: The value associated with `config_key` if present, otherwise `default`.
+
+    Example:
+        get('use_in_memory_db', default=True)
+        True
     """
     config_dict = _load_config_file()
     try:
@@ -30,13 +54,20 @@ def get(config_key: str, default=None):
         return default
 
 
-
 @functools.lru_cache(maxsize=1)
 def _load_config_file():
     """
-    Returns the contents of the config file as a dictionary.
-    If the file is not found, an empty dictionary is returned.
+    Load the configuration file and return its contents as a dictionary.
 
+    This function is cached to avoid repeated file reads. If the file is not found,
+    is not valid JSON, or any other error occurs, an empty dictionary is returned.
+
+    Returns:
+        dict: The parsed configuration dictionary, or an empty dict on error.
+
+    Logging:
+        - Logs info when the config file is loaded or not found.
+        - Logs errors for malformed JSON or unexpected exceptions.
     """
     try:
         with open(CONFIG_FILE_PATH, 'r') as fp:

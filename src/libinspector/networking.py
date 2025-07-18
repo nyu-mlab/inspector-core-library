@@ -1,3 +1,32 @@
+"""
+Networking Utilities for Inspector.
+
+This module provides functions for querying and managing network information on the host system.
+It includes utilities to retrieve MAC and IP addresses from a local database, determine the default
+network route, obtain the host's MAC address, compute the local network mask and IP range, and
+check IP address properties. It also provides functions to enable or disable IP forwarding at the
+operating system level.
+
+Key Features:
+- Database lookups for MAC and IP address associations.
+- Detection of the default gateway, interface, and host IP.
+- Retrieval of the host's MAC address and all local MAC addresses.
+- Calculation of the network mask and all IPs in the local subnet.
+- Validation and classification of IP addresses (private, IPv4).
+- Cross-platform support for enabling/disabling IP forwarding.
+
+Dependencies:
+- scapy
+- netifaces
+- netaddr
+- ipaddress
+- socket
+- subprocess
+- logging
+
+Intended Usage:
+Import and use these functions to interact with and manage network configuration as part of the Inspector's workflow.
+"""
 import ipaddress
 import socket
 import subprocess
@@ -21,8 +50,18 @@ if os.geteuid() != 0:
 
 
 def get_mac_address_from_ip(ip_addr: str) -> str:
-    """Returns the MAC address for the given IP address. Raises KeyError if not found."""
+    """
+    Retrieve the MAC address associated with a given IP address from the devices database.
 
+    Args:
+        ip_addr (str): The IP address for which to retrieve the MAC address.
+
+    Returns:
+        str: The MAC address corresponding to the provided IP address.
+
+    Raises:
+        KeyError: If no MAC address is found for the specified IP address.
+    """
     conn, rw_lock = global_state.db_conn_and_lock
 
     # Run sql query to get the MAC address based on the IP address
@@ -36,11 +75,19 @@ def get_mac_address_from_ip(ip_addr: str) -> str:
     return result['mac_address']
 
 
-
-
 def get_ip_address_from_mac(mac_addr: str) -> str:
-    """Returns the IP address for the given MAC address. Raises KeyError if not found."""
+    """
+    Retrieve the IP address associated with a given MAC address from the devices database.
 
+    Args:
+        mac_addr (str): The MAC address for which to retrieve the IP address.
+
+    Returns:
+        str: The IP address corresponding to the provided MAC address.
+
+    Raises:
+        KeyError: If no IP address is found for the specified MAC address.
+    """
     conn, rw_lock = global_state.db_conn_and_lock
 
     # Run sql query to get the IP address based on the MAC address
@@ -55,8 +102,13 @@ def get_ip_address_from_mac(mac_addr: str) -> str:
 
 
 def update_network_info():
-    """Updates the network info in global_state."""
+    """
+    Update the current network configuration in the global state.
 
+    This function determines the gateway IP, active network interface, host IP, host MAC address,
+    and the set of IP addresses in the local network, and stores them in the global state object.
+    Also logs the updated network information.
+    """
     (gateway_ip, iface, host_ip) = get_default_route()
     with global_state.global_state_lock:
         global_state.gateway_ip_addr = gateway_ip
@@ -71,11 +123,15 @@ def update_network_info():
 
 def get_default_route():
     """
-    Returns (gateway_ip, iface, host_ip).
+    Determine the default network route and returns the gateway IP, interface, and host IP.
 
-    TODO: This function may not work on Windows.
+    Returns:
+        tuple: A tuple containing (gateway_ip (str), iface (str), host_ip (str)).
 
+    Raises:
+        SystemExit: If no default route is found after multiple attempts or if network connectivity is unavailable.
     """
+    # TODO: This function may not work on Windows.
 
     # Discover the active/preferred network interface
     # by connecting to Google's public DNS server
@@ -125,16 +181,30 @@ def get_default_route():
 
 
 def get_my_mac():
-    """Returns the MAC addr of the default route interface."""
+    """
+    Return the MAC address of the default route interface.
 
+    Returns:
+        str: The MAC address of the interface used for the default route.
+
+    Raises:
+        KeyError: If no MAC address is found for the default interface.
+    """
     mac_set = get_my_mac_set(iface_filter=get_default_route()[1])
     my_mac_addr = mac_set.pop()
     return my_mac_addr
 
 
-def get_my_mac_set(iface_filter=None):
-    """Returns a set of MAC addresses of the current host."""
+def get_my_mac_set(iface_filter=None) -> set:
+    """
+    Return a set of MAC addresses for the current host.
 
+    Args:
+        iface_filter (str, optional): The name of the interface to filter by. If None, all interfaces are included.
+
+    Returns:
+        set: A set of MAC address strings for the host's interfaces.
+    """
     out_set = set()
 
     for iface in sc.get_if_list():
@@ -152,11 +222,10 @@ def get_my_mac_set(iface_filter=None):
 
 def get_network_mask():
     """
-    Returns the network mask of the default route interface.
-    Returns a string in the format, e.g., `255.255.255.0`.
+    Return the network mask of the default route interface.
 
-    Returns None upon error.
-
+    Returns:
+        str or None: The network mask as a string (e.g., '255.255.255.0'), or None if it cannot be determined.
     """
     default_route = get_default_route()
 
@@ -179,11 +248,12 @@ def get_network_mask():
     return netmask
 
 
-def get_network_ip_range():
+def get_network_ip_range() -> set:
     """
-    Gets network IP range for the default interface.
-    Returns a set of IP addresses.
+    Return the set of all IP addresses in the local network for the default interface.
 
+    Returns:
+        set: A set of IP address strings in the local network.
     """
     netmask = get_network_mask()
     if netmask is None:
@@ -204,16 +274,30 @@ def get_network_ip_range():
 
 
 def is_private_ip_addr(ip_addr):
-    """Returns True if the given IP address is a private local IP address."""
+    """
+    Determine if the given IP address is a private (non-global) address.
 
+    Args:
+        ip_addr (str): The IP address to check.
+
+    Returns:
+        bool: True if the address is private/local, False if it is global/public.
+    """
     ip_addr = ipaddress.ip_address(ip_addr)
     return not ip_addr.is_global
 
 
 
 def is_ipv4_addr(ip_string: str) -> bool:
-    """Checks if ip_string is a valid IPv4 address."""
+    """
+    Check if the provided string is a valid IPv4 address.
 
+    Args:
+        ip_string (str): The string to validate as an IPv4 address.
+
+    Returns:
+        bool: True if the string is a valid IPv4 address, False otherwise.
+    """
     try:
         socket.inet_aton(ip_string)
         return True
@@ -222,7 +306,12 @@ def is_ipv4_addr(ip_string: str) -> bool:
 
 
 def enable_ip_forwarding():
+    """
+    Enable IP forwarding on the host system.
 
+    This function enables IP forwarding (routing) at the OS level, allowing the host to forward packets between interfaces.
+    Exits the program if the operation fails.
+    """
     os_platform = common.get_os()
 
     if os_platform == 'mac':
@@ -238,7 +327,12 @@ def enable_ip_forwarding():
 
 
 def disable_ip_forwarding():
+    """
+    Disable IP forwarding on the host system.
 
+    This function disables IP forwarding (routing) at the OS level, preventing the host from forwarding packets between interfaces.
+    Exits the program if the operation fails.
+    """
     os_platform = common.get_os()
 
     if os_platform == 'mac':

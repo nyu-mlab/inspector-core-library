@@ -1,4 +1,4 @@
-"""
+r"""
 Discovers devices via SSDP. Returns an iterator of device_dict's.
 
 Sample usage:
@@ -154,7 +154,23 @@ ST: ssdp:all
 
 
 def start():
+    """
+    Start the SSDP discovery process and update the device database with discovered devices.
 
+    This function performs SSDP (Simple Service Discovery Protocol) discovery to find UPnP devices
+    on the local network. For each discovered device, it updates the `devices` table in the database
+    with the device's SSDP and UPnP metadata if not already present.
+
+    Side Effects:
+        - Updates the `devices` table in the database with discovered device information.
+        - Logs discovered devices using the module logger.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     conn, rw_lock = global_state.db_conn_and_lock
 
     # Set the socket timeout based on when the Inspector started; shorter
@@ -187,9 +203,16 @@ def start():
             logger.info(f"[ssdp] Discovered device: {discovered_device_dict['device_ip_addr']}")
 
 
-
 def fetch_and_parse_xml(url):
-    """Fetch the XML from the given URL and parse it into JSON."""
+    """
+    Fetch the XML from the given URL and parse it into a dictionary.
+
+    Args:
+        url (str): The URL to fetch the XML from.
+
+    Returns:
+        dict or None: The parsed XML as a dictionary, or None if the request fails.
+    """
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -202,7 +225,15 @@ def fetch_and_parse_xml(url):
 
 
 def xml_to_dict(element):
-    """Convert an XML element and its children into a dictionary."""
+    """
+    Convert an XML element and its children into a dictionary.
+
+    Args:
+        element (xml.etree.ElementTree.Element): The XML element to convert.
+
+    Returns:
+        dict or str: The element and its children as a dictionary, or the text if it has no children.
+    """
     def strip_ns(tag):
         return tag.split('}', 1)[-1] if '}' in tag else tag
 
@@ -213,7 +244,15 @@ def xml_to_dict(element):
 
 
 def parse_device_info(device_info):
-    """Parse the device info string into a dictionary."""
+    """
+    Parsee the device info string into a dictionary.
+
+    Args:
+        device_info (str): The device info string, typically an SSDP response.
+
+    Returns:
+        dict: The parsed device info as a dictionary.
+    """
     info_dict = {}
     lines = device_info.split("\r\n")
     for line in lines:
@@ -225,8 +264,15 @@ def parse_device_info(device_info):
 
 
 def discover_upnp_devices(timeout=5):
-    """Discover UPnP devices using SSDP. Returns an iterator of device_dict."""
+    """
+    Discover UPnP devices using SSDP.
 
+    Args:
+        timeout (int, optional): The socket timeout in seconds. Defaults to 5.
+
+    Returns:
+        Iterator[dict]: An iterator of discovered device dictionaries.
+    """
     # Set to store the IP addresses of discovered devices
     device_ip_set = set()
 

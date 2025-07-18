@@ -1,6 +1,29 @@
 """
-Sends out ARP spoofing packets for devices in the Device table.
+ARP Spoofing Module.
 
+This module is responsible for sending ARP spoofing packets to devices listed in the database.
+It periodically spoofs ARP tables of inspected devices and the network gateway, redirecting
+traffic through the Inspector host for monitoring or manipulation purposes.
+
+Features:
+- Periodically sends ARP spoofing packets between inspected devices and the gateway.
+- Ensures only inspected, non-gateway, and non-host devices are targeted.
+- Handles timing to avoid excessive spoofing.
+- Logs errors and spoofing activity for traceability.
+
+Typical usage:
+    This module is intended to be run as a background thread by the Inspector core.
+
+Functions:
+    start(): Main entry point to perform ARP spoofing for all eligible devices.
+    send_spoofed_arp(victim_mac_addr, victim_ip_addr, gateway_mac_addr, gateway_ip_addr):
+        Sends bidirectional ARP spoofing packets between a victim device and the gateway.
+
+Dependencies:
+    time, scapy, traceback, logging, global_state, networking
+
+Note:
+    You should NOT run this directly on the NYU network, you will be banned for ARP spoofing!
 """
 import time
 import scapy.all as sc
@@ -25,8 +48,26 @@ spoof_stat_dict = {
 
 def start():
     """
-    Sends out ARP spoofing packets between inspected devices and the gateway.
+    Perform ARP spoofing for all inspected devices in the database.
 
+    This function:
+      - Checks if inspection mode is enabled.
+      - Ensures spoofing is not performed more frequently than the configured interval.
+      - Retrieves all devices marked as inspected (excluding the gateway and host).
+      - Obtains the gateway's MAC address.
+      - Sends ARP spoofing packets between each inspected device and the gateway.
+      - Logs the number of devices spoofed and any errors encountered.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Side Effects:
+        - Sends ARP packets on the network.
+        - Updates the timestamp of the last spoofing operation.
+        - Logs activity and errors.
     """
     with global_state.global_state_lock:
         if not global_state.is_inspecting:
@@ -87,8 +128,27 @@ def start():
 
 def send_spoofed_arp(victim_mac_addr, victim_ip_addr, gateway_mac_addr, gateway_ip_addr):
     """
-    Sends out bidirectional ARP spoofing packets between the victim and the gateway.
+    Send bidirectional ARP spoofing packets between a victim device and the gateway.
 
+    This function crafts and sends two ARP reply packets:
+      - One to the gateway, making it believe the Inspector host is the victim.
+      - One to the victim, making it believe the Inspector host is the gateway.
+
+    Args:
+        victim_mac_addr (str): MAC address of the victim device.
+        victim_ip_addr (str): IP address of the victim device.
+        gateway_mac_addr (str): MAC address of the gateway.
+        gateway_ip_addr (str): IP address of the gateway.
+
+    Returns:
+        None
+
+    Side Effects:
+        - Sends ARP packets on the network.
+        - Does nothing if the victim is the gateway or if inspection mode is disabled.
+
+    Raises:
+        None (exceptions are handled by the caller).
     """
     host_mac_addr = global_state.host_mac_addr
 

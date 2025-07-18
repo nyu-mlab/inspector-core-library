@@ -9,8 +9,17 @@ from scapy.layers.tls.handshake import TLSClientHello
 
 def extract_sni(packet) -> str:
     """
-    Returns the SNI of a packet.
+    Return the Server Name Indication (SNI) from a TLS packet, or an empty string if not present.
 
+    This function inspects the given packet for a TLSClientHello layer and attempts to extract the SNI
+    (Server Name Indication) extension, which indicates the hostname the client is attempting to connect to.
+    If the SNI extension is not found or the packet does not contain a TLSClientHello, an empty string is returned.
+
+    Args:
+        packet: The packet object to inspect, expected to be a Scapy packet.
+
+    Returns:
+        str: The extracted SNI as a string, or an empty string if not found.
     """
     try:
         tls_layer = packet[TLSClientHello] # type: ignore
