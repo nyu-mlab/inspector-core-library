@@ -43,7 +43,7 @@ class MDNSDeviceListener(ServiceListener):
     def add_service(self, zeroconf, service_type, name):
         try:
             info = zeroconf.get_service_info(service_type, name)
-        except Exception as e:
+        except Exception:
             pass
 
         if info:
@@ -58,7 +58,7 @@ class MDNSDeviceListener(ServiceListener):
                         continue
                     try:
                         clean_property_dict[k.decode(errors='replace')] = v.decode(errors='replace')
-                    except Exception as e:
+                    except Exception:
                         pass
 
                 self.device_properties = clean_property_dict
@@ -90,7 +90,7 @@ def get_mdns_devices(service_type_discovery_timeout=10, device_discovery_timeout
     for service_type in service_types:
         try:
             zc, listener = discover_mdns_devices(service_type)
-        except Exception as e:
+        except Exception:
             continue
         zc_listener_list.append((zc, listener))
 

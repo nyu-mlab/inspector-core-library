@@ -141,7 +141,7 @@ def get_my_mac_set(iface_filter=None):
         if iface_filter is not None and len(iface) > 1 and iface in iface_filter:
             try:
                 mac = sc.get_if_hwaddr(iface_filter)
-            except Exception as e:
+            except Exception:
                 continue
             else:
                 out_set.add(mac)

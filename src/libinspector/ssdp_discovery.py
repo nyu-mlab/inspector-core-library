@@ -196,7 +196,7 @@ def fetch_and_parse_xml(url):
         xml_content = response.content
         root = ET.fromstring(xml_content)
         return xml_to_dict(root)
-    except requests.RequestException as e:
+    except requests.RequestException:
         return None
 
 

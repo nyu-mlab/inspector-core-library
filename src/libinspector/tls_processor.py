@@ -4,7 +4,7 @@ Functions for processing the TLS layer in packets.
 This module is in a separate file because I don't want `from scapy.all import *` (required for `TLSClientHello`) to pollute the namespace.
 
 """
-from scapy.all import *
+from scapy.layers.tls.handshake import TLSClientHello
 
 
 def extract_sni(packet) -> str:

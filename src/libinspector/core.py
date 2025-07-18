@@ -1,11 +1,4 @@
 import logging
-
-LOG_FILE = 'inspector.log'
-
-logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-logger = logging.getLogger(__name__)
-
 import time
 from . import global_state
 from . import mem_db
@@ -18,6 +11,11 @@ from . import arp_spoof
 from . import ssdp_discovery
 from . import mdns_discovery
 
+LOG_FILE = 'inspector.log'
+
+logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
 
 def start_threads(custom_packet_callback_func=None):
     """

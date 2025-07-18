@@ -3,7 +3,7 @@ Parses and extracts the company based on the MAC address.
 
 """
 import functools
-import pkg_resources
+import importlib.resources
 
 
 # Maps the first 3 (or more) bytes of the MAC address to the company name.
@@ -15,12 +15,8 @@ _oui_length_split_list = []
 
 @functools.lru_cache(maxsize=1)
 def parse_wireshark_oui_database():
-
     _oui_length_splits = set()
-
-    wireshark_oui_db_file_path = pkg_resources.resource_filename('libinspector', 'wireshark_oui_database.txt')
-
-    with open(wireshark_oui_db_file_path, encoding='utf-8') as fp:
+    with importlib.resources.files('libinspector').joinpath('wireshark_oui_database.txt').open('r', encoding='utf-8') as fp:
         for line in fp:
             line = line.strip()
             if line == '' or line.startswith('#'):

@@ -1,6 +1,5 @@
 import unittest
 import subprocess
-import libinspector.core as core
 import libinspector.common as common
 import libinspector.networking as networking
 
