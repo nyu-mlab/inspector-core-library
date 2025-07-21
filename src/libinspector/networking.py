@@ -125,8 +125,6 @@ def get_default_route():
     Raises:
         SystemExit: If no default route is found after multiple attempts or if network connectivity is unavailable.
     """
-    # TODO: This function may not work on Windows.
-
     # Discover the active/preferred network interface
     # by connecting to Google's public DNS server
     try:
@@ -227,7 +225,6 @@ def get_network_mask():
 
     iface_str = ''
     if sys.platform.startswith('win'):
-        # TODO: Need to test on Windows
         iface_info = sc.conf.iface
         iface_str = iface_info.guid
     else:
