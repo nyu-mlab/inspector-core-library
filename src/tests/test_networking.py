@@ -1,14 +1,8 @@
 import unittest
 import subprocess
-import sys
+import os
 import libinspector.common as common
 import libinspector.networking as networking
-
-
-# Make sure we're running as root
-if not common.is_admin():
-    print('All tests must be run as root. Exiting.')
-    sys.exit(1)
 
 
 def run_command(command):
@@ -20,23 +14,49 @@ def run_command(command):
         return f"Error: {e}"
 
 def get_default_interface():
-    command = "route get default | grep interface | awk '{print $2}'"
+    if common.get_os() == 'mac':
+        command = "route get default | grep interface | awk '{print $2}'"
+    elif common.get_os() == 'linux':
+        command = "ip route show default | awk '/default/ {print $5}'"
+    else:
+        raise NotImplementedError(f"Unsupported OS: {common.get_os()}")
     return run_command(command)
 
 def get_router_ip(interface):
-    command = f"netstat -rn | grep default | grep {interface} | awk '{{print $2}}'"
+    if common.get_os() == 'mac':
+        command = f"netstat -rn | grep default | grep {interface} | awk '{{print $2}}'"
+    elif common.get_os() == 'linux':
+        command = f"ip route show default | grep {interface} | awk '{{print $3}}'"
+    else:
+        raise NotImplementedError(f"Unsupported OS: {common.get_os()}")
     return run_command(command)
 
 def get_ip_address(interface):
-    command = f"ipconfig getifaddr {interface}"
+    if common.get_os() == 'mac':
+        command = f"ipconfig getifaddr {interface}"
+    elif common.get_os() == 'linux':
+        command = f"ip addr show {interface} | grep 'inet ' | awk '{{print $2}}' | cut -d'/' -f1"
+    else:
+        raise NotImplementedError(f"Unsupported OS: {common.get_os()}")
     return run_command(command)
 
 def get_mac_address(interface):
-    command = f"ifconfig {interface} | grep ether | awk '{{print $2}}'"
+    if common.get_os() == 'mac':
+        command = f"ifconfig {interface} | grep ether | awk '{{print $2}}'"
+    elif common.get_os() == 'linux':
+        command = f"ifconfig {interface} | grep ether | awk '{{print $2}}'"
+    else:
+        raise NotImplementedError(f"Unsupported OS: {common.get_os()}")
     return run_command(command)
 
 def get_netmask(interface):
-    command = f"ifconfig {interface} | grep 'netmask' | awk '{{print $4}}'"
+    if common.get_os() == 'mac':
+        command = f"ifconfig {interface} | grep 'netmask' | awk '{{print $4}}'"
+    elif common.get_os() == 'linux':
+        command = f"ifconfig {interface} | grep 'netmask' | awk '{{print $4}}'"
+        return run_command(command)
+    else:
+        raise NotImplementedError(f"Unsupported OS: {common.get_os()}")
     netmask_hex = run_command(command)
 
     # Convert hexadecimal netmask to decimal format
@@ -51,17 +71,11 @@ def get_netmask(interface):
 class TestNetworking(unittest.TestCase):
 
     def test_routes(self):
-        """
-        TODO need tests for Linux and Windows
-
-        """
-        if common.get_os() == 'mac':
-
-            interface = get_default_interface()
-            router_ip = get_router_ip(interface)
-            ip_address = get_ip_address(interface)
-            mac_address = get_mac_address(interface)
-            netmask = get_netmask(interface)
+        interface = get_default_interface()
+        router_ip = get_router_ip(interface)
+        ip_address = get_ip_address(interface)
+        mac_address = get_mac_address(interface)
+        netmask = get_netmask(interface)
 
         default_route = networking.get_default_route()
 
@@ -77,13 +91,11 @@ class TestNetworking(unittest.TestCase):
 
         networking.update_network_info()
 
-
+    # GitHub Actions often run in a controlled environment where IP forwarding may not be applicable or allowed.
+    @unittest.skipIf(os.environ.get("GITHUB_ACTIONS") == "true", "Skipping IP forwarding test in CI/CD environment")
     def test_ip_forwarding(self):
-
         networking.enable_ip_forwarding()
         networking.disable_ip_forwarding()
-
-
 
 
 if __name__ == '__main__':
