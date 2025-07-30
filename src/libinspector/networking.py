@@ -17,8 +17,8 @@ Key Features:
 
 Dependencies:
 - scapy
-- netifaces
 - netaddr
+- psutil
 - ipaddress
 - socket
 - subprocess
@@ -33,9 +33,9 @@ import subprocess
 import sys
 import time
 import scapy.all as sc
-import netifaces
 import netaddr
 import logging
+import psutil
 
 from . import global_state
 from . import common
@@ -136,7 +136,6 @@ def get_default_route():
         logger.error('[networking] Inspector cannot run without network connectivity. Exiting.')
         sys.exit(1)
 
-    routes = None
     default_route = None
 
     # Try to obtain the route table for at most 30 seconds
@@ -222,18 +221,17 @@ def get_network_mask():
     default_route = get_default_route()
 
     assert default_route[1] == sc.conf.iface, "incorrect sc.conf.iface"
-
-    iface_str = ''
     if sys.platform.startswith('win'):
         iface_info = sc.conf.iface
-        iface_str = iface_info.guid
+        iface_str = iface_info.name
     else:
         iface_str = sc.conf.iface
 
+    iface_addresses = psutil.net_if_addrs().get(str(iface_str), [])
     netmask = None
-    for k, v in netifaces.ifaddresses(str(iface_str)).items():
-        if v[0]['addr'] == default_route[2]:
-            netmask = v[0]['netmask']
+    for addr in iface_addresses:
+        if addr.family == socket.AF_INET and addr.address == default_route[2]:
+            netmask = addr.netmask
             break
 
     return netmask
