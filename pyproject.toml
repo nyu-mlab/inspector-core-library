@@ -15,9 +15,9 @@ include = [
 ]
 
 [project]
-name = "libinspector-core"
+name = "libinspector"
 dynamic = ["version"]
-description = "Library for core functionalities of IoT Inspector"
+description = "Library for core functionalities of IoT Inspector. This captures packets and stores it in a database for real-time network traffic analysis."
 readme = "README.md"
 authors = [
     { name = "Danny Huang", email = "dhuang@nyu.edu" }
