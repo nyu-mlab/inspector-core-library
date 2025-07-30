@@ -1,6 +1,36 @@
 """
-Maintains the global state in a singleton design pattern.
+Global State Management (Singleton Pattern).
 
+This module maintains the global state for the Inspector application using a singleton-like approach.
+It provides thread-safe access to shared variables that are used across different components of the system,
+including networking information, application status flags, database connections, and packet processing queues.
+
+Features:
+- Thread-safe access to all global state variables via `global_state_lock`.
+- Stores host network information (IP, MAC, interface, gateway, IP range).
+- Manages the in-memory database connection and lock.
+- Tracks application lifecycle and inspection mode status.
+- Ensures only one instance of the Inspector core is running at a time.
+- Provides a queue for packet processing and supports a custom packet callback.
+
+Variables:
+    global_state_lock (threading.Lock): Lock for synchronizing access to global state.
+    host_ip_addr (str): Host machine's IP address.
+    host_mac_addr (str): Host machine's MAC address.
+    host_active_interface (str): Name of the active network interface.
+    gateway_ip_addr (str): Default gateway IP address.
+    ip_range (list): List of IP addresses in the local network range.
+    db_conn_and_lock (tuple or None): In-memory database connection and its lock.
+    is_running (bool): Indicates if the application is running.
+    is_inspecting (bool): Indicates if inspection mode is enabled.
+    inspector_started (list): Singleton flag to ensure only one Inspector instance.
+    inspector_started_ts (float): Timestamp when Inspector was started.
+    packet_queue (queue.Queue): Queue for packets to be processed.
+    custom_packet_callback_func (callable or None): Custom callback for packet processing.
+
+Usage:
+    Import this module and use the provided variables to access or modify global state.
+    Always acquire `global_state_lock` before accessing or modifying any global state variable.
 """
 import threading
 import queue

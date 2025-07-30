@@ -1,12 +1,27 @@
+"""
+Inspector Core Module.
+
+This module serves as the main entry point and orchestrator for the Inspector application.
+It initializes logging, sets up the database, configures networking, and starts all core
+background threads for device discovery, packet collection, processing, spoofing, and
+network service discovery (mDNS, SSDP/UPnP). It also provides a command-line interface
+for running Inspector as a standalone application.
+
+Functions:
+    start_threads(custom_packet_callback_func=None): Initializes and starts all Inspector threads.
+    clean_up(): Disables IP forwarding and performs cleanup tasks.
+    main(): Runs Inspector as a standalone application, handling process lifecycle and shutdown.
+
+Dependencies:
+    logging, time, os, sys, global_state, mem_db, networking, safe_loop, arp_scanner,
+    packet_collector, packet_processor, arp_spoof, ssdp_discovery, mdns_discovery
+
+Typical usage:
+    python -m libinspector.core
+"""
 import logging
-
-LOG_FILE = 'inspector.log'
-
-logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-logger = logging.getLogger(__name__)
-
 import time
+import sys
 from . import global_state
 from . import mem_db
 from . import networking
@@ -17,14 +32,34 @@ from . import packet_processor
 from . import arp_spoof
 from . import ssdp_discovery
 from . import mdns_discovery
+from . import common
 
+LOG_FILE = 'inspector.log'
+
+logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
 
 def start_threads(custom_packet_callback_func=None):
     """
-    Main entry point if you use libinspector in your package.
+    Initialize and starts all core Inspector threads and services.
 
+    This function ensures only one instance of Inspector is running, initializes the
+    in-memory database, configures networking (including enabling IP forwarding),
+    and launches background threads for:
+      - Periodic network info updates
+      - ARP-based device discovery
+      - Packet collection and processing
+      - ARP spoofing
+      - mDNS and SSDP/UPnP device discovery
+
+    Args:
+        custom_packet_callback_func (callable, optional): A user-supplied callback function
+            to process packets. If provided, it will be used by the packet processor.
+
+    Returns:
+        None
     """
-
     # Make sure that only one single instance of Inspector core is running
     with global_state.global_state_lock:
         if global_state.inspector_started[0]:
@@ -70,15 +105,39 @@ def start_threads(custom_packet_callback_func=None):
 
 
 def clean_up():
+    """
+    Disables IP forwarding and performs any necessary cleanup before shutdown.
 
+    This function should be called before exiting the Inspector application to
+    restore system networking settings to their original state.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     networking.disable_ip_forwarding()
 
 
 def main():
     """
-    Execute this function to start Inspector as a standalone application from the command line.
+    Run Inspector as a standalone application from the command line.
 
+    This function checks for root privileges, starts all Inspector threads,
+    and enters a loop to keep the application running until interrupted or
+    signaled to stop. Handles graceful shutdown on KeyboardInterrupt.
+
+    Args:
+        None
+
+    Returns:
+        None
     """
+    # Ensure that we are running as root
+    if not common.is_admin():
+        logger.error('[networking] Inspector must be run as root to enable IP forwarding.')
+        sys.exit(1)
 
     start_threads()
 

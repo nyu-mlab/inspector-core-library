@@ -1,23 +1,37 @@
+"""
+mDNS Device Discovery Integration.
+
+This module provides functionality to discover devices on the local network using mDNS (Multicast DNS).
+It launches the mDNS discovery helper as a separate subprocess to avoid socket exhaustion issues
+and parses the discovered device information, saving it to the database. This approach ensures
+proper resource cleanup and compatibility with environments such as Streamlit.
+
+Functions:
+    start(): Runs mDNS discovery in a subprocess and updates the devices table with discovered metadata.
+
+Dependencies:
+    logging, json, subprocess, sys, global_state
+
+Typical usage example:
+    import libinspector.mdns_discovery
+    libinspector.mdns_discovery.start()
+"""
 import logging
 import json
 import subprocess
 import sys
-
 from . import global_state
-
 
 
 logger = logging.getLogger(__name__)
 
 
-
 def start():
     """
-    Discovers devices via mDNS. Saves the discovered devices to the `devices`
-    table (under the `metadata_json` column) in the database.
+    Discovers devices via mDNS. Saves the discovered devices to the `devices` table (under the `metadata_json` column) in the database.
 
-    Notes from Danny: I have to start the mdns_discovery_helper in a separate
-    process. I believe there is a bug in its original implementation that
+    Notes from Danny: I have to start the mdns_discovery_helper in a separate process.
+    I believe there is a bug in its original implementation that
     doesn't properly close the socket. As a result, a few minutes of continuous
     discovery will cause the OS to run out of sockets, even though I make sure
     that the zeroconf object is closed after the discovery is done. Below is a
@@ -27,6 +41,11 @@ def start():
     multiprocessing as it does not play well with `streamlit`. The only way that
     works is `subprocess`.
 
+    Args:
+        None
+
+    Returns:
+        None
     """
     logger.info("[mDNS] Discovering devices...")
 

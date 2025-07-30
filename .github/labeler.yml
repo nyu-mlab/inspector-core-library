@@ -1,0 +1,11 @@
+Documentation:
+  - '**/*.md'
+
+Github-files:
+  - '.github/**'
+
+Tests:
+  - 'src/tests/**'
+
+Libinspector-Core:
+  - 'src/libinspector-core/**'
