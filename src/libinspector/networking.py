@@ -151,6 +151,13 @@ def get_default_route():
 
         # Get the default route
         for route in routes:
+            logger.info(f'[networking] route: {route}')
+            # This is if we are within a container
+            if route[1] == 0 and route[2] != '0.0.0.0':
+                sc.conf.iface = route[3]
+                default_route = (route[2], route[3], iface_ip)
+                break
+            # Fallback: original condition
             if route[4] == iface_ip and route[2] != '0.0.0.0':
                 # Reassign scapy's default interface to the one we selected
                 sc.conf.iface = route[3]
