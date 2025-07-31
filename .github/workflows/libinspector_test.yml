@@ -8,6 +8,34 @@ on:
     - cron: '0 0 */30 * *'
 
 jobs:
+  test-arm:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: raspberrypi3
+            image: arm32v7/python:3.11
+            platform: linux/arm/v7
+          - name: raspberrypi4
+            image: arm64v8/python:3.11
+            platform: linux/arm64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Run tests in ${{ matrix.name }} container
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ matrix.image }}
+          options: --platform ${{ matrix.platform }} -v ${{ github.workspace }}:/workspace -w /workspace
+          run: |
+            export GITHUB_ACTIONS="true"
+            apt-get update && apt-get install -y iproute2 net-tools
+            python3 -m pip install --upgrade pip
+            python3 -m pip install pytest
+            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+            pytest src/tests
+
   build:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -49,7 +77,7 @@ jobs:
       env:
         GITHUB_ACTIONS: "true"
       run: |
-        coverage run -m pytest src/tests
+        coverage run --source=src/libinspector -m pytest src/tests
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5

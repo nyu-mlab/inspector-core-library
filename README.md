@@ -1,4 +1,7 @@
 # inspector-core-library
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![libinspector_test](https://github.com/nyu-mlab/inspector-core-library/actions/workflows/libinspector_test.yml/badge.svg)](https://github.com/nyu-mlab/inspector-core-library/actions/workflows/libinspector_test.yml)
+
 Library for core functionalities of IoT Inspector
 
 ## Installation
@@ -46,6 +49,7 @@ By default, the traffic is saved in an in-memory SQLite database, so you won't s
 The preferred way to use `libinspector` is to embed it within your own Python application. You can do this by importing `libinspector.core` and calling the `start_threads()` method, which returns almost instantaneously. Your Python script will then need to read the in-memory SQLite database for information about the devices and the network traffic flows.
 
 ```python
+import time
 import libinspector.core
 import libinspector.global_state
 
@@ -66,6 +70,7 @@ while True:
 If you want to add additional packet parsing capabilities, you can specific a custom callback when you start Inspector. Here's an example that prints out the summary of each captured packet:
 
 ```python
+import libinspector
 libinspector.core.start_threads(
   custom_packet_callback_func=lambda pkt: print(f'Packet captured: {pkt.summary()}')
 )
@@ -125,7 +130,7 @@ The `libinspector` module works by starting various threads to monitor and inspe
 ## Notes
 
 TODO:
- - Publish to PyPI.
+ - Create more test cases to obtain higher code coverage.
 
 
 ## Contributing

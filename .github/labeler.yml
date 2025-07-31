@@ -8,4 +8,4 @@ Tests:
   - 'src/tests/**'
 
 Libinspector-Core:
-  - 'src/libinspector-core/**'
+  - 'src/libinspector/**'
