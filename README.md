@@ -6,10 +6,10 @@ Library for core functionalities of IoT Inspector
 
 ## Installation
 
-To install the `libinspector` module via `pip` from GitHub, use the following command:
+To install the `libinspector` module via pip, use the following command:
 
 ```sh
-pip install git+https://github.com/nyu-mlab/inspector-core-library.git
+pip install libinspector
 ```
 
 
