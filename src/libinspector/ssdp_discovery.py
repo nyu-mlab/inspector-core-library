@@ -165,9 +165,6 @@ def start():
         - Updates the `devices` table in the database with discovered device information.
         - Logs discovered devices using the module logger.
 
-    Args:
-        None
-
     Returns:
         None
     """
@@ -213,15 +210,21 @@ def fetch_and_parse_xml(url):
     Returns:
         dict or None: The parsed XML as a dictionary, or None if the request fails.
     """
+    xml_content = None
     try:
         response = requests.get(url)
         response.raise_for_status()
         xml_content = response.content
         root = ET.fromstring(xml_content)
         return xml_to_dict(root)
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logger.warning(f"Request failed for {url}: {e}")
         return None
-
+    except ET.ParseError as e:
+        logger.warning(f"XML parsing failed for {url}: {e}")
+        if xml_content is not None:
+            logger.warning(f"XML content:\n {xml_content}")
+        return None
 
 
 def xml_to_dict(element):
@@ -240,7 +243,6 @@ def xml_to_dict(element):
     if len(element) == 0:
         return element.text
     return {strip_ns(element.tag): {strip_ns(child.tag): xml_to_dict(child) for child in element}}
-
 
 
 def parse_device_info(device_info):
