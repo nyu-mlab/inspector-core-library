@@ -143,5 +143,5 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 ## Contact
 
-Ask Prof. Danny Y. Huang (dhuang@nyu.edu).
+Ask Prof. Danny Y. Huang (dhuang@nyu.edu) or Andrew Quijano (andrew.quijano@nyu.edu).
 
