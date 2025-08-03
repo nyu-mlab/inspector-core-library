@@ -16,8 +16,7 @@ include = [
 
 [tool.setuptools.package-data]
 libinspector = [
-    "data/*.csv",
-    "data/*.txt"
+    "data/*.csv"
 ]
 
 [project]
