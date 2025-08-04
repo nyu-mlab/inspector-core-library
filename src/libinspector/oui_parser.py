@@ -2,16 +2,19 @@
 OUI (Organizationally Unique Identifier) Parser Module.
 
 This module provides functionality to parse and extract the vendor or company name
-associated with a given MAC address using a Wireshark OUI database. It loads the
-OUI-to-company mapping from a resource file and efficiently caches lookups for
-performance. The main function, `get_vendor`, returns the vendor name for a given
-MAC address, or an empty string if the vendor is unknown.
+associated with a given MAC address using a locally downloaded IEEE OUI database.
+It loads the OUI-to-company mapping from a resource file or a local CSV and
+efficiently caches lookups for performance.
+
+MA-L (Large): https://standards-oui.ieee.org/oui/oui.csv
+MA-M (Medium): https://standards-oui.ieee.org/oui28/mam.csv
+MA-S (Small): https://standards-oui.ieee.org/oui36/oui36.csv
 
 Key Features:
-- Loads and parses the Wireshark OUI database from a packaged resource file.
+- Loads and parses the IEEE OUI database from a local CSV file.
 - Supports OUI prefixes of varying lengths for accurate vendor identification.
 - Uses LRU caching to optimize repeated lookups and database parsing.
-- Provides a simple interface to retrieve the vendor for a given MAC address.
+- Provides simple interfaces to retrieve the vendor for a given MAC address.
 
 Intended Usage:
 Call `get_vendor(mac_addr)` with a MAC address string to retrieve the associated
@@ -19,14 +22,17 @@ vendor or company name.
 
 Dependencies:
 - functools
-- importlib.resources
+- os
+- csv (for parsing the IEEE file)
 
-Resource File:
-- wireshark_oui_database.txt (must be present in the `libinspector` package)
+Resource Files:
+- oui.csv
+- mam.csv
+- oui36.csv
 """
 import functools
-import importlib.resources
-
+import os
+import csv
 
 # Maps the first 3 (or more) bytes of the MAC address to the company name.
 _oui_dict = {}
@@ -34,44 +40,72 @@ _oui_dict = {}
 _oui_length_split_list = []
 
 
-
 @functools.lru_cache(maxsize=1)
-def parse_wireshark_oui_database():
+def parse_ieee_oui_database_from_local_csv():
     """
-    Parse the Wireshark OUI database and populates the OUI-to-company mapping.
+    Parse local IEEE OUI databases (MA-L, MA-M, and MA-S) and populate the OUI-to-company mapping.
+    See Module Docstring for more details where the files were obtained from.
 
-    This function reads the `wireshark_oui_database.txt` resource file, which contains mappings
-    from OUI prefixes to company names, and populates the global `_oui_dict` with these mappings.
-    It also determines the set of unique OUI prefix lengths found in the database and stores them
-    in `_oui_length_split_list` for use in vendor lookups.
+    This function reads the `oui.csv`, `mam.csv`, and `oui36.csv` files from a local directory,
+    which contain mappings from OUI prefixes to company names. It populates the global `_oui_dict`
+    with these mappings. It clears any previously loaded data to ensure only the latest
+    IEEE data is used. It also determines the set of unique OUI prefix lengths found in the
+    databases and stores them in `_oui_length_split_list`.
 
     The function is cached to ensure the database is only parsed once per process lifetime,
     improving performance for repeated lookups.
 
-    File Format:
-        Each line in the database file should be tab-separated, with the OUI prefix, an unused field,
-        and the company name. Lines starting with '#' or empty lines are ignored.
+    File Format (Expected):
+        The CSV files are expected to have an OUI prefix in the 'Assignment' column and the
+        company name in the 'Organization Name' column. They also contain a header row which
+        is skipped.
 
     Side Effects:
-        - Populates the global `_oui_dict` with OUI-to-company mappings.
-        - Populates the global `_oui_length_split_list` with sorted OUI prefix lengths.
+        - Populates the global `_oui_dict` with OUI-to-company mappings, clearing any old data.
+        - Populates the global `_oui_length_split_list` with sorted OUI prefix lengths,
+          clearing any old data.
 
     Returns:
         None
     """
+    # Clear existing data to avoid conflicts with other database parsers
+    _oui_dict.clear()
+    _oui_length_split_list.clear()
+
     _oui_length_splits = set()
-    with importlib.resources.files('libinspector').joinpath('wireshark_oui_database.txt').open('r', encoding='utf-8') as fp:
-        for line in fp:
-            line = line.strip()
-            if line == '' or line.startswith('#'):
-                continue
-            (oui, _, company) = line.split('\t')
-            oui = oui.split('/', 1)[0].lower().replace(':', '').strip()
-            _oui_dict[oui] = company.strip()
-            _oui_length_splits.add(len(oui))
+    data_files = ['oui.csv', 'mam.csv', 'oui36.csv']
 
-    _oui_length_split_list.extend(sorted(_oui_length_splits))
+    for filename in data_files:
+        data_path = os.path.join(os.path.dirname(__file__), 'data', filename)
+        data_path = os.path.abspath(data_path)
 
+        try:
+            with open(data_path, 'r', encoding='utf-8') as fp:
+                reader = csv.reader(fp)
+                header = next(reader, None)  # Skip the header row
+
+                if header is None:
+                    continue
+
+                try:
+                    oui_index = header.index("Assignment")
+                    company_index = header.index("Organization Name")
+                except ValueError:
+                    continue
+
+                for row in reader:
+                    try:
+                        oui = row[oui_index].lower().strip()
+                        company = row[company_index].strip()
+                        _oui_dict[oui] = company
+                        _oui_length_splits.add(len(oui))
+                    except IndexError:
+                        continue
+        except FileNotFoundError:
+            # Continue to the next file if one is not found
+            continue
+
+    _oui_length_split_list.extend(sorted(_oui_length_splits, reverse=True))
 
 
 @functools.lru_cache(maxsize=1024)
@@ -97,7 +131,7 @@ def get_vendor(mac_addr: str) -> str:
         >>> get_vendor('00:1A:2B:3C:4D:5E')
         'Example Corp'
     """
-    parse_wireshark_oui_database()
+    parse_ieee_oui_database_from_local_csv()
 
     mac_addr = mac_addr.lower().replace(':', '').replace('-', '').replace('.', '')
 
@@ -108,4 +142,3 @@ def get_vendor(mac_addr: str) -> str:
             return _oui_dict[oui]
 
     return ''
-

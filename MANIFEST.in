@@ -1,0 +1,2 @@
+recursive-include libinspector/data *.csv
+global-exclude *.py[cod] __pycache__ *.sw* .git*
