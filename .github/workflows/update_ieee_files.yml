@@ -2,8 +2,8 @@ name: Update IEEE MAC Address Databases
 
 on:
   schedule:
-    # Runs every day at midnight UTC
-    - cron: '0 0 * * *'
+    # Runs at midnight UTC on the first day of each month
+    - cron: '0 0 1 * *'
   workflow_dispatch:
     # Allows manual triggering of the workflow from the GitHub UI
 
