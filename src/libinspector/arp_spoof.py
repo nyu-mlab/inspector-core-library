@@ -169,9 +169,9 @@ def send_spoofed_arp(victim_mac_addr, victim_ip_addr, gateway_mac_addr, gateway_
     dest_arp.pdst = gateway_ip_addr
     dest_arp.hwdst = gateway_mac_addr
 
-    sc.send(dest_arp, iface=global_state.host_active_interface, verbose=0)
+    sc.sendp(dest_arp, iface=global_state.host_active_interface, verbose=0)
 
-    # Send ARP spoof request to victim, so that the victim thinks that Inspector's host is the gateway.
+    # Send ARP spoof request to a victim so that the victim thinks that Inspector's host is the gateway.
 
     victim_arp = sc.ARP()
     victim_arp.op = 2
@@ -180,4 +180,4 @@ def send_spoofed_arp(victim_mac_addr, victim_ip_addr, gateway_mac_addr, gateway_
     victim_arp.pdst = victim_ip_addr
     victim_arp.hwdst = victim_mac_addr
 
-    sc.send(victim_arp, iface=global_state.host_active_interface, verbose=0)
+    sc.sendp(victim_arp, iface=global_state.host_active_interface, verbose=0)
