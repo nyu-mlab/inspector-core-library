@@ -221,9 +221,13 @@ def fetch_and_parse_xml(url):
         logger.warning(f"Request failed for {url}: {e}")
         return None
     except ET.ParseError as e:
-        logger.warning(f"XML parsing failed for {url}: {e}")
         if xml_content is not None:
-            logger.warning(f"XML content:\n {xml_content}")
+            decoded_content = xml_content.decode("utf-8", errors="ignore").strip()
+            if decoded_content != "status=ok":
+                logger.warning(f"XML content:\n {xml_content}")
+                logger.warning(f"XML parsing failed for {url}: {e}")
+        else:
+            logger.warning(f"XML parsing failed, and XML content is NOT populated {url}: {e}")
         return None
 
 

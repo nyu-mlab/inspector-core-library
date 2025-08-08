@@ -161,23 +161,11 @@ def send_spoofed_arp(victim_mac_addr, victim_ip_addr, gateway_mac_addr, gateway_
             return
 
     # Send ARP spoof request to gateway, so that the gateway thinks that Inspector's host is the victim.
-
-    dest_arp = sc.ARP()
-    dest_arp.op = 2
-    dest_arp.psrc = victim_ip_addr
-    dest_arp.hwsrc = host_mac_addr
-    dest_arp.pdst = gateway_ip_addr
-    dest_arp.hwdst = gateway_mac_addr
-
-    sc.sendp(dest_arp, iface=global_state.host_active_interface, verbose=0)
+    dest_arp = sc.ARP(op=2, psrc=victim_ip_addr, hwsrc=host_mac_addr, pdst=gateway_ip_addr, hwdst=gateway_mac_addr)
+    dest_pkt = sc.Ether(src=host_mac_addr, dst=gateway_mac_addr) / dest_arp
+    sc.sendp(dest_pkt, iface=global_state.host_active_interface, verbose=0)
 
     # Send ARP spoof request to a victim so that the victim thinks that Inspector's host is the gateway.
-
-    victim_arp = sc.ARP()
-    victim_arp.op = 2
-    victim_arp.psrc = gateway_ip_addr
-    victim_arp.hwsrc = host_mac_addr
-    victim_arp.pdst = victim_ip_addr
-    victim_arp.hwdst = victim_mac_addr
-
-    sc.sendp(victim_arp, iface=global_state.host_active_interface, verbose=0)
+    victim_arp = sc.ARP(op=2, psrc=gateway_ip_addr, hwsrc=host_mac_addr, pdst=victim_ip_addr, hwdst=victim_mac_addr)
+    victim_pkt = sc.Ether(src=host_mac_addr, dst=victim_mac_addr) / victim_arp
+    sc.sendp(victim_pkt, iface=global_state.host_active_interface, verbose=0)
