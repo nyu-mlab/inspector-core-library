@@ -1,5 +1,5 @@
 import unittest
-import libinspector.trackers as trackers
+import libinspector.privacy as trackers
 
 
 class TestGetCountryFromIpAddr(unittest.TestCase):
