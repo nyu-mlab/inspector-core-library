@@ -17,14 +17,14 @@ jobs:
       - name: Download latest IEEE CSV files
         run: |
           mkdir -p src/libinspector/data
-          curl -sL https://standards-oui.ieee.org/oui/oui.csv -o src/libinspector/data/oui.csv
-          curl -sL https://standards-oui.ieee.org/oui28/mam.csv -o src/libinspector/data/mam.csv
-          curl -sL https://standards-oui.ieee.org/oui36/oui36.csv -o src/libinspector/data/oui36.csv
+          curl -sL https://standards-oui.ieee.org/oui/oui.csv -o src/libinspector/data/oui/oui.csv
+          curl -sL https://standards-oui.ieee.org/oui28/mam.csv -o src/libinspector/data/oui/mam.csv
+          curl -sL https://standards-oui.ieee.org/oui36/oui36.csv -o src/libinspector/data/oui/oui36.csv
 
       - name: Check for changes
         id: git_status
         run: |
-          git add src/libinspector/data/oui.csv src/libinspector/data/mam.csv src/libinspector/data/oui36.csv
+          git add src/libinspector/data/oui/oui.csv src/libinspector/data/oui/mam.csv src/libinspector/data/oui/oui36.csv
           if [ -n "$(git status --porcelain)" ]; then
             echo "Changes found. A pull request will be created."
             echo "has_changes=true" >> $GITHUB_OUTPUT
