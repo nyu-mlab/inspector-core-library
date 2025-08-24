@@ -76,7 +76,7 @@ def parse_ieee_oui_database_from_local_csv():
     data_files = ['oui.csv', 'mam.csv', 'oui36.csv']
 
     for filename in data_files:
-        data_path = os.path.join(os.path.dirname(__file__), 'data', filename)
+        data_path = os.path.join(os.path.dirname(__file__), 'data', 'oui', filename)
         data_path = os.path.abspath(data_path)
 
         try:

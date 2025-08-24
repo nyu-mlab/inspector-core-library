@@ -1,0 +1,57 @@
+name: Update IEEE MAC Address Database and DuckDuckGo Privacy Tracker Files
+
+on:
+  schedule:
+    # Runs at midnight UTC on the first day of each month
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+    # Allows manual triggering of the workflow from the GitHub UI
+
+jobs:
+  update-database:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download latest IEEE CSV files
+        run: |
+          mkdir -p src/libinspector/data/oui
+          curl -sL https://standards-oui.ieee.org/oui/oui.csv -o src/libinspector/data/oui/oui.csv
+          curl -sL https://standards-oui.ieee.org/oui28/mam.csv -o src/libinspector/data/oui/mam.csv
+          curl -sL https://standards-oui.ieee.org/oui36/oui36.csv -o src/libinspector/data/oui/oui36.csv
+
+      - name: Download latest DuckDuckGo JSON files
+        run: |
+          mkdir -p src/libinspector/data/trackers
+          curl -sL https://raw.githubusercontent.com/duckduckgo/tracker-blocklists/refs/heads/main/web/v5/android-tds.json -o src/libinspector/data/trackers/android-tds.json
+          curl -sL https://raw.githubusercontent.com/duckduckgo/tracker-blocklists/refs/heads/main/web/v5/ios-tds.json -o src/libinspector/data/trackers/ios-tds.json
+
+      - name: Download latest GeoLite2 Database file
+        env:
+          GITHUB_ACTIONS: true
+        run: |
+          echo "Work In Progress..."
+
+      - name: Check for changes
+        id: git_status
+        run: |
+          git add src/libinspector/data/oui/oui.csv src/libinspector/data/oui/mam.csv src/libinspector/data/oui/oui36.csv
+          git add src/libinspector/data/trackers/android-tds.json src/libinspector/data/trackers/ios-tds.json
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Changes found. A pull request will be created."
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes detected. Skipping pull request."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.git_status.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: Update IEEE MAC address database CSV files and DuckDuckGo JSON files"
+          title: "chore: Update IEEE MAC address database CSV files and DuckDuckGo JSON files"
+          body: "This is an automated pull request to update the IEEE MA-L, MA-M, and MA-S databases. This will also update DuckDuckGo Privacy Tracker JSON files."
+          branch: "update-files-bot"

@@ -16,7 +16,9 @@ include = [
 
 [tool.setuptools.package-data]
 libinspector = [
-    "data/*.csv"
+    "data/oui/*.csv",
+    "data/geolite/*.mmdb",
+    "data/trackers/*.json",
 ]
 
 [project]
@@ -37,6 +39,7 @@ dependencies = [
     "scapy==2.6.1",
     "requests==2.32.4",
     "zeroconf==0.146.1",
+    "geoip2==5.1.0"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

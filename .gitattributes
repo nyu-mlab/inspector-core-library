@@ -3,3 +3,4 @@
 
 # Explicitly ensure CSV files are standardized to LF
 *.csv text eol=lf
+*.json test eol=lf

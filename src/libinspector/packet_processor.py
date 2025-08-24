@@ -233,7 +233,6 @@ def write_hostname_ip_mapping_to_db(device_mac_addr, hostname, ip_set, data_sour
     Args:
         ip_set: Set of IP addresses to associate with the hostname.
         hostname: The hostname to map to each IP address.
-        current_ts: The current timestamp for the update.
         data_source: The source of the hostname information.
         device_mac_addr: The MAC address of the device (used for logging).
 
