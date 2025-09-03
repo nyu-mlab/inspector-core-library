@@ -1,2 +1,4 @@
-recursive-include libinspector/data *.csv
+recursive-include libinspector/data/oui *.csv
+recursive-include libinspector/data/geolite *.mmdb
+recursive-include libinspector/data/trackers *.json
 global-exclude *.py[cod] __pycache__ *.sw* .git*
