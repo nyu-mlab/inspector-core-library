@@ -1,4 +1,4 @@
-name: Update IEEE MAC Address Database and DuckDuckGo Privacy Tracker Files
+name: Update IEEE MAC Address Database, DuckDuckGo Privacy Tracker Files, and GeoLite2 Database
 
 on:
   schedule:
@@ -24,20 +24,22 @@ jobs:
       - name: Download latest DuckDuckGo JSON files
         run: |
           mkdir -p src/libinspector/data/trackers
-          curl -sL https://raw.githubusercontent.com/duckduckgo/tracker-blocklists/refs/heads/main/web/v5/android-tds.json -o src/libinspector/data/trackers/android-tds.json
+          curl -sL https://raw.githubusercontent.com/duckduckgo/tracker-blocklists/refs/heads/main/app/android-tds.json -o src/libinspector/data/trackers/android-tds.json
           curl -sL https://raw.githubusercontent.com/duckduckgo/tracker-blocklists/refs/heads/main/web/v5/ios-tds.json -o src/libinspector/data/trackers/ios-tds.json
 
       - name: Download latest GeoLite2 Database file
         env:
-          GITHUB_ACTIONS: true
+          MAXMIND_ACCOUNT_ID: ${{ secrets.MAXMIND_ACCOUNT_ID }}
+          MAXMIND_LICENSE_KEY: ${{ secrets.MAXMIND_LICENSE_KEY }}
         run: |
-          echo "Work In Progress..."
+          curl -O -J -L -u $MAXMIND_ACCOUNT_ID:$MAXMIND_LICENSE_KEY 'https://download.maxmind.com/geoip/databases/GeoLite2-Country/download?suffix=tar.gz'
+          tar -xzf GeoLite2-Country_*.tar.gz
+          mv GeoLite2-Country_*/* ./src/libinspector/data/geolite/
 
       - name: Check for changes
         id: git_status
         run: |
-          git add src/libinspector/data/oui/oui.csv src/libinspector/data/oui/mam.csv src/libinspector/data/oui/oui36.csv
-          git add src/libinspector/data/trackers/android-tds.json src/libinspector/data/trackers/ios-tds.json
+          git add src/libinspector/data
           if [ -n "$(git status --porcelain)" ]; then
             echo "Changes found. A pull request will be created."
             echo "has_changes=true" >> $GITHUB_OUTPUT
@@ -51,7 +53,14 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: Update IEEE MAC address database CSV files and DuckDuckGo JSON files"
-          title: "chore: Update IEEE MAC address database CSV files and DuckDuckGo JSON files"
-          body: "This is an automated pull request to update the IEEE MA-L, MA-M, and MA-S databases. This will also update DuckDuckGo Privacy Tracker JSON files."
+          commit-message: "auto-update: Update IEEE MAC address database CSV files, DuckDuckGo JSON files and GeoLite2 database"
+          title: "auto-update: Update IEEE MAC address database CSV files, DuckDuckGo JSON files and GeoLite2 database"
           branch: "update-files-bot"
+          body: |
+            This is an automated pull request to update the following files:
+
+            - `oui.csv`, `mam.csv`, `oui36.csv`: IEEE MA-L, MA-M, and MA-S MAC address assignment databases, used for identifying device manufacturers.
+            - `android-tds.json`, `ios-tds.json`: DuckDuckGo Privacy Tracker blocklists for Android and iOS, used to detect domains with known trackers.
+            - `GeoLite2-Country.mmdb`: GeoLite2 IP geolocation database, used for country-level IP lookups.
+
+            These updates ensure the latest data is available for device identification, privacy tracking, and geolocation features.

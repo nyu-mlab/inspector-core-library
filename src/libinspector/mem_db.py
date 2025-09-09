@@ -125,11 +125,12 @@ def initialize_db():
             )
         ''')
 
-        # Create indexes on src_ip_address, dest_ip_address, src_hostname, and dest_hostname
+        # Create indexes on src_ip_address, dest_ip_address, src_hostname, dest_hostname and timestamp
         cursor.execute('CREATE INDEX idx_network_flows_src_ip_address ON network_flows(src_ip_address)')
         cursor.execute('CREATE INDEX idx_network_flows_dest_ip_address ON network_flows(dest_ip_address)')
         cursor.execute('CREATE INDEX idx_network_flows_src_hostname ON network_flows(src_hostname)')
         cursor.execute('CREATE INDEX idx_network_flows_dest_hostname ON network_flows(dest_hostname)')
+        cursor.execute('CREATE INDEX idx_network_flows_timestamp ON network_flows(timestamp)')
 
         # Define a SQLite UDF to parse the OUI from the MAC address
         conn.create_function('get_oui_vendor', 1, get_vendor)
