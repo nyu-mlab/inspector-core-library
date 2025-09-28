@@ -22,6 +22,7 @@ Typical usage:
 import logging
 import time
 import sys
+import threading
 from . import global_state
 from . import mem_db
 from . import networking
@@ -73,8 +74,17 @@ def start_threads(custom_packet_callback_func=None):
 
     # Initialize the database
     logger.info('[core] Initializing the database')
+    # 1. Get the connection (conn) and the exclusive WRITE lock (exclusive_lock)
+    conn, exclusive_lock = mem_db.initialize_db()
+    # 2. Create the concurrent READ lock (RLock) dynamically
+    concurrent_read_lock = threading.RLock()
+
+    # 3. Assign both tuples to the global state
     with global_state.global_state_lock:
-        global_state.db_conn_and_lock = mem_db.initialize_db()
+        # Tuple 1: Connection + Exclusive Write Lock (for INSERT/UPDATE/DELETE)
+        global_state.db_conn_and_lock = (conn, exclusive_lock)
+        # Tuple 2: Connection + Concurrent Read Lock (for SELECT)
+        global_state.db_conn_and_read_only_lock = (conn, concurrent_read_lock)
 
     # Initialize the networking variables
     logger.info('[core] Initializing the networking variables')
