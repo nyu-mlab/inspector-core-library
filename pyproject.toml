@@ -30,7 +30,7 @@ authors = [
     { name = "Danny Huang", email = "dhuang@nyu.edu" },
     { name = "Andrew Quijano", email = "andrew.quijano@nyu.edu" }
 ]
-license = "MIT"
+license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
     "setuptools==78.1.1",
@@ -38,8 +38,8 @@ dependencies = [
     "psutil==7.0.0",
     "scapy==2.6.1",
     "requests==2.32.4",
-    "zeroconf==0.146.1",
-    "geoip2==5.1.0"
+    "zeroconf==0.146.1"
+#    "geoip2==5.1.0"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
