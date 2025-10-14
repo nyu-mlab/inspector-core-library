@@ -127,6 +127,18 @@ The `libinspector` module works by starting various threads to monitor and inspe
    - Start the mDNS and UPnP scanner threads.
 
 
+### Testing and Development
+
+To test locally, run these commands:
+
+```
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install .
+```
+
+
 ## Notes
 
 TODO:
