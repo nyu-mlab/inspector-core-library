@@ -1,6 +1,7 @@
 # inspector-core-library
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![libinspector_test](https://github.com/nyu-mlab/inspector-core-library/actions/workflows/libinspector_test.yml/badge.svg)](https://github.com/nyu-mlab/inspector-core-library/actions/workflows/libinspector_test.yml)
+[![codecov](https://codecov.io/gh/nyu-mlab/inspector-core-library/graph/badge.svg?token=TBYF5KVBT7)](https://codecov.io/gh/nyu-mlab/inspector-core-library)
 
 Library for core functionalities of IoT Inspector
 

@@ -40,12 +40,6 @@ def start():
     be properly closed when the process exits. Also note that I cannot use
     multiprocessing as it does not play well with `streamlit`. The only way that
     works is `subprocess`.
-
-    Args:
-        None
-
-    Returns:
-        None
     """
     logger.info("[mDNS] Discovering devices...")
 

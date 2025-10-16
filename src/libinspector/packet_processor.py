@@ -97,6 +97,7 @@ def process_packet_helper(pkt):
     # ====================
 
     process_client_hello(pkt)
+    process_http_user_agent(pkt)
 
     # Process flow
     return process_flow(pkt)
@@ -114,7 +115,7 @@ def process_arp(pkt):
     Returns:
         None
     """
-    if not ((pkt.op == 1 or pkt.op == 2)):
+    if not (pkt.op == 1 or pkt.op == 2):
         return
 
     if pkt.hwsrc == global_state.host_mac_addr:
@@ -265,9 +266,6 @@ def process_flow(pkt):
 
     Args:
         pkt: The network packet (scapy packet) to process.
-
-    Returns:
-        None
     """
     # Must have TCP or UDP layer
     if sc.TCP in pkt:
@@ -351,9 +349,6 @@ def update_hostnames_in_flows():
     Update the `network_flows` table by replacing IP addresses with corresponding hostnames from the `hostnames` table.
 
     This function runs at most once every 2 seconds. It checks if enough time has passed since the last update, and if so, it acquires a database lock and executes an SQL statement to update the `src_hostname` and `dest_hostname` fields in the `network_flows` table. The update is performed only for flows where either the source or destination hostname is missing and a matching IP-to-hostname mapping exists in the `hostnames` table. After the update, the function records the current timestamp and logs the number of rows affected. This ensures that the flow records reflect the most recent hostname information for easier analysis and tracking.
-
-    Returns:
-        None
     """
     if time.time() - update_hostnames_in_flows_status_dict['last_update_ts'] < 2:
         return
@@ -389,7 +384,6 @@ def update_hostnames_in_flows():
         row_count = conn.execute(sql).rowcount
 
     update_hostnames_in_flows_status_dict['last_update_ts'] = time.time()
-
     logger.info(f'[Pkt Processor] Updated {row_count} rows in network_flows with hostnames.')
 
 
@@ -455,9 +449,6 @@ def process_client_hello(pkt):
 
     Args:
         pkt: The network packet (scapy packet) to process.
-
-    Returns:
-        None
     """
     # Make sure that the Inspector host should be the destination of this packet
     with global_state.global_state_lock:
@@ -473,3 +464,73 @@ def process_client_hello(pkt):
     remote_ip_addr = pkt[sc.IP].dst
 
     write_hostname_ip_mapping_to_db(device_mac_addr, sni, {remote_ip_addr}, 'sni')
+
+
+def process_http_user_agent(pkt):
+    """
+    Extract the User-Agent header from an HTTP packet and update the devices' metadata.
+
+    This function looks for TCP packets on standard HTTP ports (80, 8080)
+    containing an HTTP request payload. It extracts the 'User-Agent' string
+    and updates the corresponding device's metadata_json field in the database
+    with the 'user_agent_info'.
+
+    Args:
+        pkt: The network packet (scapy packet) to process.
+    """
+    # Check for TCP layer on standard HTTP ports
+    if sc.TCP not in pkt or pkt[sc.TCP].dport not in [80, 8080]:
+        return
+
+    # Check for Raw layer (where HTTP payload resides)
+    if sc.Raw not in pkt:
+        return
+
+    # Extract HTTP payload and attempt to decode
+    try:
+        payload = pkt[sc.Raw].load.decode('latin-1')
+    except Exception:
+        return
+
+    # Check if this is an HTTP GET/POST request (only requests contain User-Agent)
+    if not payload.startswith(('GET ', 'POST ')):
+        return
+
+    # Look for the User-Agent header
+    user_agent_start_tag = 'User-Agent: '
+    if user_agent_start_tag not in payload:
+        return
+
+    user_agent_str = ''
+    try:
+        # Find the line starting with User-Agent
+        for line in payload.split('\r\n'):
+            if line.startswith(user_agent_start_tag):
+                # Extract the value part
+                user_agent_str = line[len(user_agent_start_tag):].strip()
+                break
+    except Exception:
+        return
+
+    if len(user_agent_str) == 0:
+        return
+
+    device_mac = pkt[sc.Ether].src
+
+    # If the user-agent is found, update the devices table
+    conn, rw_lock = global_state.db_conn_and_lock
+
+    with rw_lock:
+        # TODO: Ask Danny, can this change?
+        try:
+            conn.execute('''
+                     UPDATE devices
+                     SET metadata_json = json_patch(
+                             metadata_json,
+                             json_object('user_agent_info', ?))
+                     WHERE mac_address = ?
+                     ''', (user_agent_str, device_mac))
+
+            logger.info(f'[Pkt Processor] HTTP: Device {device_mac} User-Agent: {user_agent_str}')
+        except Exception as e:
+            logger.error(f'[Pkt Processor] Failed to update UA for {device_mac}: {e}')

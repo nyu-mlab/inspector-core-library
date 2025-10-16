@@ -42,9 +42,6 @@ def start():
     then uses Scapy's `sniff` to capture packets in 30-second intervals. The sniffing filter excludes
     packets to/from the host itself, except for ARP packets which are required for device discovery.
     Each captured packet is passed to `add_packet_to_queue`. Sniffing stops if the Inspector is no longer running.
-
-    Returns:
-        None
     """
     with global_state.global_state_lock:
         host_active_interface = global_state.host_active_interface

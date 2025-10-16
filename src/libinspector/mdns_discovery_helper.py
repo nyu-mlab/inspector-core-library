@@ -103,7 +103,7 @@ class MDNSDeviceListener(ServiceListener):
     """
     Listener to discover devices for a specific mDNS service type.
 
-    Atributes:
+    Attributes:
         service_type (str): The mDNS service type being monitored.
         device_name (str or None): The name of the discovered device.
         device_ip_address (str or None): The IPv4 address of the discovered device.
@@ -198,7 +198,7 @@ def discover_mdns_devices(service_type):
     return zeroconf, listener
 
 
-def get_mdns_devices(service_type_discovery_timeout=10, device_discovery_timeout=10):
+def get_mdns_devices(service_type_discovery_timeout: int = 10, device_discovery_timeout: int = 10):
     """
     Discover devices using mDNS and group them by IP address.
 
@@ -244,10 +244,8 @@ def get_mdns_devices(service_type_discovery_timeout=10, device_discovery_timeout
 
 
 if __name__ == "__main__":
-
     device_dict = get_mdns_devices(
         service_type_discovery_timeout=5,
         device_discovery_timeout=5
     )
-
     print(json.dumps(device_dict, indent=2))
