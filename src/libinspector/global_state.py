@@ -88,11 +88,17 @@ custom_packet_callback_func: Callable[[Any], None] | None = None
 # The MAC address of the device currently undergoing a labeling session.
 labeling_target_mac: str | None = None
 
+# The IP address of the device currently undergoing a labeling session.
+labeling_target_ip: str | None = None
+
 # The user-selected activity label for the current session.
 labeling_activity_name: str | None = None
 
 # The epoch timestamp when the labeling packet collection officially began.
 labeling_session_start_ts: int | None = None
+
+# The epoch timestamp when the labeling packet collection officially ended.
+labeling_session_end_ts: int | None = None
 
 # =========================================================================
 # NEW: Application Status and Monitoring Variables
