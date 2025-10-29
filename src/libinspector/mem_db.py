@@ -74,7 +74,7 @@ def initialize_db():
 
         # Create the devices table
         cursor.execute(f'''
-            CREATE TABLE devices (
+            CREATE TABLE IF NOT EXISTS devices (
                 mac_address TEXT PRIMARY KEY,
                 ip_address TEXT NOT NULL,
                 is_inspected INTEGER DEFAULT {1 if inspect_every_device_by_default else 0},
@@ -85,12 +85,12 @@ def initialize_db():
         ''')
 
         # Create indexes on ip_address and is_inspected separately
-        cursor.execute('CREATE INDEX idx_devices_ip_address ON devices(ip_address)')
-        cursor.execute('CREATE INDEX idx_devices_is_inspected ON devices(is_inspected)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_devices_ip_address ON devices(ip_address)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_devices_is_inspected ON devices(is_inspected)')
 
         # Create the hostnames table
         cursor.execute('''
-            CREATE TABLE hostnames (
+            CREATE TABLE IF NOT EXISTS hostnames (
                 ip_address TEXT PRIMARY KEY,
                 hostname TEXT NOT NULL,
                 updated_ts INTEGER DEFAULT 0,
@@ -101,7 +101,7 @@ def initialize_db():
 
         # Create the network flows table, with a compound primary key as the flow_key
         cursor.execute('''
-            CREATE TABLE network_flows (
+            CREATE TABLE IF NOT EXISTS network_flows (
                 timestamp INTEGER,
                 src_ip_address TEXT,
                 dest_ip_address TEXT,
@@ -126,11 +126,11 @@ def initialize_db():
         ''')
 
         # Create indexes on src_ip_address, dest_ip_address, src_hostname, dest_hostname and timestamp
-        cursor.execute('CREATE INDEX idx_network_flows_src_ip_address ON network_flows(src_ip_address)')
-        cursor.execute('CREATE INDEX idx_network_flows_dest_ip_address ON network_flows(dest_ip_address)')
-        cursor.execute('CREATE INDEX idx_network_flows_src_hostname ON network_flows(src_hostname)')
-        cursor.execute('CREATE INDEX idx_network_flows_dest_hostname ON network_flows(dest_hostname)')
-        cursor.execute('CREATE INDEX idx_network_flows_timestamp ON network_flows(timestamp)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_network_flows_src_ip_address ON network_flows(src_ip_address)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_network_flows_dest_ip_address ON network_flows(dest_ip_address)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_network_flows_src_hostname ON network_flows(src_hostname)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_network_flows_dest_hostname ON network_flows(dest_hostname)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_network_flows_timestamp ON network_flows(timestamp)')
 
         # Define a SQLite UDF to parse the OUI from the MAC address
         conn.create_function('get_oui_vendor', 1, get_vendor)
