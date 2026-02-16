@@ -20,8 +20,8 @@ Call `initialize_db()` to create and access the database connection and lock.
 import sqlite3
 import threading
 
+from .common import get_env_bool
 from .oui_parser import get_vendor
-from . import local_config
 
 
 # Writes the in-memory database to disk for debugging purposes, only if the
@@ -56,7 +56,7 @@ def initialize_db():
         - The function must be called before any database operations are performed.
     """
     db_uri = ':memory:'
-    if not local_config.get('use_in_memory_db', True):
+    if not get_env_bool('USE_IN_MEMORY_DB', True):
         db_uri = debug_db_path
 
     # Connect to an in-memory SQLite database
@@ -67,7 +67,7 @@ def initialize_db():
     rw_lock = threading.Lock()
 
     # Should we arp-spoof every device we discovered via ARP scanning?
-    inspect_every_device_by_default = local_config.get('inspect_every_device_by_default', False)
+    inspect_every_device_by_default = get_env_bool('SCAN_ALL_DEVICES', False)
 
     with rw_lock:
         cursor = conn.cursor()
