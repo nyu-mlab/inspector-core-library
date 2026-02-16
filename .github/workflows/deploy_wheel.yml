@@ -33,7 +33,7 @@ jobs:
     needs: [create_release]
     steps:
     - name: Checkout project sources
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Create wheel file
       run: |
@@ -42,7 +42,7 @@ jobs:
         PRETEND_VERSION=${{ needs.create_release.outputs.v-version }} python3 -m build --wheel .
 
     - name: Store the IoT Core Python wheel
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: iot-core
         path: dist/*.whl
@@ -63,7 +63,7 @@ jobs:
 
     steps:
       - name: Download all the wheel file
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: iot-core
           path: dist/
