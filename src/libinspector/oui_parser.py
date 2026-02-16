@@ -33,6 +33,7 @@ Resource Files:
 import functools
 import os
 import csv
+import sys
 
 # Maps the first 3 (or more) bytes of the MAC address to the company name.
 _oui_dict = {}
@@ -142,3 +143,9 @@ def get_vendor(mac_addr: str) -> str:
             return _oui_dict[oui]
 
     return ''
+
+
+if __name__ == '__main__':
+    with open(sys.argv[1], 'r') as f:
+        for line in f:
+            print(line.strip(), '->', get_vendor(line.strip()))

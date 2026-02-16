@@ -32,6 +32,7 @@ import logging
 
 from . import global_state
 from . import networking
+from .common import get_env_bool
 
 
 logger = logging.getLogger(__name__)
@@ -161,9 +162,11 @@ def send_spoofed_arp(victim_mac_addr, victim_ip_addr, gateway_mac_addr, gateway_
             return
 
     # Send ARP spoof request to gateway, so that the gateway thinks that Inspector's host is the victim.
-    dest_arp = sc.ARP(op=2, psrc=victim_ip_addr, hwsrc=host_mac_addr, pdst=gateway_ip_addr, hwdst=gateway_mac_addr)
-    dest_pkt = sc.Ether(src=host_mac_addr, dst=gateway_mac_addr) / dest_arp
-    sc.sendp(dest_pkt, iface=global_state.host_active_interface, verbose=0)
+    # 2/15/2025: Some routers will block ARP spoofing attempts that claim to be from the gateway, so we make this optional via an environment variable.
+    if get_env_bool('ARP_SPOOF_ROUTER', False):
+        dest_arp = sc.ARP(op=2, psrc=victim_ip_addr, hwsrc=host_mac_addr, pdst=gateway_ip_addr, hwdst=gateway_mac_addr)
+        dest_pkt = sc.Ether(src=host_mac_addr, dst=gateway_mac_addr) / dest_arp
+        sc.sendp(dest_pkt, iface=global_state.host_active_interface, verbose=0)
 
     # Send ARP spoof request to a victim so that the victim thinks that Inspector's host is the gateway.
     victim_arp = sc.ARP(op=2, psrc=gateway_ip_addr, hwsrc=host_mac_addr, pdst=victim_ip_addr, hwdst=victim_mac_addr)

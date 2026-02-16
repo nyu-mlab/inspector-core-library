@@ -29,20 +29,27 @@ If you're debugging, you can run the following to reset the database and start t
 sudo truncate -s 0 inspector.log; sudo rm -f debug_mem_db.db; sudo $(which $(which python)) -m libinspector.core
 ```
 
-By default, the traffic is saved in an in-memory SQLite database, so you won't see the data directly. Also, none of the devices are inspected by default. For debugging purposes, you can have `libinspector` dump the internal SQLite database to disk and inspect (i.e., ARP-spoof) traffic for ALL devices by doing the following:
+For debugging purposes, you can also set the following environment variables to control the behavior of the Inspector Core:
 
-1. Create a file `libinspector_config.json` in the same directory where you run `sudo python -m libinspector.core` (or where you import `libinspector` as a part of your package).
+| Variable           | Description                                                                                             | Default |
+|:-------------------|:--------------------------------------------------------------------------------------------------------|:--------|
+| `USE_IN_MEMORY_DB` | Set to `false` to use a physical `.db` file on disk. Useful for debugging the core library/database.    | `true`  |
+| `SCAN_ALL_DEVICES` | Set to `true` to ARP-spoof all devices on the network BY DEFAULT. Disabled by default.                  | `false` |
+| `ARP_SPOOF_ROUTER` | Set to `true` to ARP-spoof the router. Not reccomended as modern routers have ARP Spoofing protections. | `false` |
 
-2. Edit this json file to include the following text:
-```json
-  {
-      "use_in_memory_db": false,
-      "inspect_every_device_by_default": true
-  }
+#### How to set environment variables (Linux/macOS):
+```bash
+export USE_IN_MEMORY_DB=false
+export SCAN_ALL_DEVICES=true
+export ARP_SPOOF_ROUTER=false
 ```
 
-3. Remove the `libinspector_config.json` config file, or flip the above values in production.
-
+#### How to set environment variables (Windows):
+```powershell
+$env:USE_IN_MEMORY_DB = "false"
+$env:SCAN_ALL_DEVICES = "true"
+$env:ARP_SPOOF_ROUTER = "false"
+```
 
 ### Embedding in Your Own Python Application
 

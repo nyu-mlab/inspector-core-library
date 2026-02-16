@@ -16,6 +16,17 @@ import sys
 import os
 
 
+def get_env_bool(name, default=True):
+    """
+    Helper function to read a boolean environment variable.
+    All environment variable values are treated as strings, so this function checks for common truthy string values.
+    """
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.lower() in ['true', '1', 't', 'y', 'yes']
+
+
 def get_os() -> str:
     """
     Detect the current operating system and return a normalized string identifier.
