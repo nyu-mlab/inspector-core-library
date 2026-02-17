@@ -31,17 +31,19 @@ sudo truncate -s 0 inspector.log; sudo rm -f debug_mem_db.db; sudo $(which $(whi
 
 For debugging purposes, you can also set the following environment variables to control the behavior of the Inspector Core:
 
-| Variable           | Description                                                                                             | Default |
-|:-------------------|:--------------------------------------------------------------------------------------------------------|:--------|
-| `USE_IN_MEMORY_DB` | Set to `false` to use a physical `.db` file on disk. Useful for debugging the core library/database.    | `true`  |
-| `SCAN_ALL_DEVICES` | Set to `true` to ARP-spoof all devices on the network BY DEFAULT. Disabled by default.                  | `false` |
-| `ARP_SPOOF_ROUTER` | Set to `true` to ARP-spoof the router. Not reccomended as modern routers have ARP Spoofing protections. | `false` |
+| Variable           | Description                                                                                          | Default |
+|:-------------------|:-----------------------------------------------------------------------------------------------------|:--------|
+| `USE_IN_MEMORY_DB` | Set to `false` to use a physical `.db` file on disk. Useful for debugging the core library/database. | `true`  |
+| `SCAN_ALL_DEVICES` | Set to `true` to ARP-spoof all devices on the network BY DEFAULT. Disabled by default.               | `false` |
+| `ARP_SPOOF_ROUTER` | Set to `false` to NOT ARP-spoof the router.                                                          | `true`  |
+| `ARP_SPOOF_DEVICE` | Set to `false` to NOT ARP-spoof the device.                                                          | `true`  |
 
 #### How to set environment variables (Linux/macOS):
 ```bash
 export USE_IN_MEMORY_DB=false
 export SCAN_ALL_DEVICES=true
 export ARP_SPOOF_ROUTER=false
+export ARP_SPOOF_DEVICE=false
 ```
 
 #### How to set environment variables (Windows):
@@ -49,6 +51,7 @@ export ARP_SPOOF_ROUTER=false
 $env:USE_IN_MEMORY_DB = "false"
 $env:SCAN_ALL_DEVICES = "true"
 $env:ARP_SPOOF_ROUTER = "false"
+$env:ARP_SPOOF_DEVICE = "false"
 ```
 
 ### Embedding in Your Own Python Application
@@ -158,7 +161,7 @@ Contributions are welcome! Please feel free to submit a pull request or open an 
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the Apache 2.0 License. See the LICENSE file for details.
 
 ## Contact
 

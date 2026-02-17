@@ -19,15 +19,20 @@ Call `initialize_db()` to create and access the database connection and lock.
 """
 import sqlite3
 import threading
+import logging
+import os
+from platformdirs import user_data_dir
 
 from .common import get_env_bool
 from .oui_parser import get_vendor
 
 
+logger = logging.getLogger(__name__)
 # Writes the in-memory database to disk for debugging purposes, only if the
-# config "use_in_memory_db" is explicitly set to False in the
-# inspector_config.json file
-debug_db_path = 'debug_mem_db.db'
+# environment variable `USE_IN_MEMORY_DB` is explicitly not set to true (default is true)
+APP_NAME = "iot-inspector"
+DATA_DIR = user_data_dir(APP_NAME)
+debug_db_path = os.path.join(DATA_DIR, 'debug_mem_db.db')
 
 
 def initialize_db():
@@ -57,6 +62,8 @@ def initialize_db():
     """
     db_uri = ':memory:'
     if not get_env_bool('USE_IN_MEMORY_DB', True):
+        logger.warning(f'[DB] Saving IoT Inspector Database to the file: {debug_db_path}')
+        os.makedirs(DATA_DIR, exist_ok=True)
         db_uri = debug_db_path
 
     # Connect to an in-memory SQLite database
