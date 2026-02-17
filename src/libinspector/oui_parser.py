@@ -74,10 +74,9 @@ def parse_ieee_oui_database_from_local_csv():
     _oui_length_split_list.clear()
 
     _oui_length_splits = set()
-    data_files = ['oui.csv', 'mam.csv', 'oui36.csv']
-
-    for filename in data_files:
-        data_path = os.path.join(os.path.dirname(__file__), 'data', 'oui', filename)
+    oui_csv_file_directory = os.path.join(os.path.dirname(__file__), 'data', 'oui')
+    for filename in os.listdir(oui_csv_file_directory):
+        data_path = os.path.join(oui_csv_file_directory, filename)
         data_path = os.path.abspath(data_path)
 
         try:
@@ -145,7 +144,19 @@ def get_vendor(mac_addr: str) -> str:
     return ''
 
 
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: python oui_parser.py <mac_addresses_file>")
+        print("The file should contain one MAC address per line.")
+        return
+
+    try:
+        with open(sys.argv[1], 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                print(line.strip(), '->', get_vendor(line.strip()))
+    except FileNotFoundError:
+        print(f"File not found: {sys.argv[1]}")
+
+
 if __name__ == '__main__':
-    with open(sys.argv[1], 'r') as f:
-        for line in f:
-            print(line.strip(), '->', get_vendor(line.strip()))
+    main()

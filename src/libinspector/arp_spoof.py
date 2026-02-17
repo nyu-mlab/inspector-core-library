@@ -113,7 +113,6 @@ def start():
     # Send ARP spoofing packets for each inspected device
     spoof_count = 0
     for device_dict in inspected_device_list:
-
         try:
             send_spoofed_arp(device_dict['mac_address'], device_dict['ip_address'], gateway_mac_addr, gateway_ip_addr)
         except Exception:
@@ -163,12 +162,19 @@ def send_spoofed_arp(victim_mac_addr, victim_ip_addr, gateway_mac_addr, gateway_
 
     # Send ARP spoof request to gateway, so that the gateway thinks that Inspector's host is the victim.
     # 2/15/2025: Some routers will block ARP spoofing attempts that claim to be from the gateway, so we make this optional via an environment variable.
-    if get_env_bool('ARP_SPOOF_ROUTER', False):
+    if get_env_bool('ARP_SPOOF_ROUTER', True):
+        logger.info("[arp_spoof] Sending ARP spoofing packet to gateway to impersonate victim")
         dest_arp = sc.ARP(op=2, psrc=victim_ip_addr, hwsrc=host_mac_addr, pdst=gateway_ip_addr, hwdst=gateway_mac_addr)
         dest_pkt = sc.Ether(src=host_mac_addr, dst=gateway_mac_addr) / dest_arp
         sc.sendp(dest_pkt, iface=global_state.host_active_interface, verbose=0)
+    else:
+        logger.info("[arp_spoof] Skipping ARP spoofing packet to gateway to impersonate victim due to environment variable setting")
 
     # Send ARP spoof request to a victim so that the victim thinks that Inspector's host is the gateway.
-    victim_arp = sc.ARP(op=2, psrc=gateway_ip_addr, hwsrc=host_mac_addr, pdst=victim_ip_addr, hwdst=victim_mac_addr)
-    victim_pkt = sc.Ether(src=host_mac_addr, dst=victim_mac_addr) / victim_arp
-    sc.sendp(victim_pkt, iface=global_state.host_active_interface, verbose=0)
+    if get_env_bool('ARP_SPOOF_DEVICE', True):
+        logger.info("[arp_spoof] Sending ARP spoofing packet to victim to impersonate gateway")
+        victim_arp = sc.ARP(op=2, psrc=gateway_ip_addr, hwsrc=host_mac_addr, pdst=victim_ip_addr, hwdst=victim_mac_addr)
+        victim_pkt = sc.Ether(src=host_mac_addr, dst=victim_mac_addr) / victim_arp
+        sc.sendp(victim_pkt, iface=global_state.host_active_interface, verbose=0)
+    else:
+        logger.info("[arp_spoof] Skipping ARP spoofing packet to victim to impersonate gateway due to environment variable setting")
