@@ -115,7 +115,7 @@ def update_network_info():
 
 
 
-def get_default_route():
+def get_default_route() -> tuple:
     """
     Determine the default network route and returns the gateway IP, interface, and host IP.
 
@@ -177,8 +177,7 @@ def get_default_route():
     return default_route
 
 
-
-def get_my_mac():
+def get_my_mac() -> str:
     """
     Return the MAC address of the default route interface.
 

@@ -16,10 +16,13 @@ import sys
 import os
 
 
-def get_env_bool(name, default=True):
+def get_env_bool(name: str, default=True):
     """
     Helper function to read a boolean environment variable.
     All environment variable values are treated as strings, so this function checks for common truthy string values.
+    Args:
+        name: The name of the environment variable to read.
+        default: The default boolean value to return if the environment variable is not set.
     """
     value = os.environ.get(name)
     if value is None:

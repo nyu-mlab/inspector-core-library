@@ -59,12 +59,6 @@ def start():
       - Sends ARP spoofing packets between each inspected device and the gateway.
       - Logs the number of devices spoofed and any errors encountered.
 
-    Args:
-        None
-
-    Returns:
-        None
-
     Side Effects:
         - Sends ARP packets on the network.
         - Updates the timestamp of the last spoofing operation.
@@ -126,7 +120,7 @@ def start():
 
 
 
-def send_spoofed_arp(victim_mac_addr, victim_ip_addr, gateway_mac_addr, gateway_ip_addr):
+def send_spoofed_arp(victim_mac_addr: str, victim_ip_addr: str, gateway_mac_addr: str, gateway_ip_addr: str):
     """
     Send bidirectional ARP spoofing packets between a victim device and the gateway.
 
@@ -139,9 +133,6 @@ def send_spoofed_arp(victim_mac_addr, victim_ip_addr, gateway_mac_addr, gateway_
         victim_ip_addr (str): IP address of the victim device.
         gateway_mac_addr (str): MAC address of the gateway.
         gateway_ip_addr (str): IP address of the gateway.
-
-    Returns:
-        None
 
     Side Effects:
         - Sends ARP packets on the network.

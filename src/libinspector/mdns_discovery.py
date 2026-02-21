@@ -19,7 +19,6 @@ Typical usage example:
 import logging
 import json
 import subprocess
-import sys
 from . import global_state
 
 
@@ -40,18 +39,12 @@ def start():
     be properly closed when the process exits. Also note that I cannot use
     multiprocessing as it does not play well with `streamlit`. The only way that
     works is `subprocess`.
-
-    Args:
-        None
-
-    Returns:
-        None
     """
     logger.info("[mDNS] Discovering devices...")
 
     # Run the mdns_discovery_helper in a separate subprocess
     proc = subprocess.Popen(
-        [sys.executable, '-m', 'libinspector.mdns_discovery_helper'],
+        ['mdns_discovery_helper'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )

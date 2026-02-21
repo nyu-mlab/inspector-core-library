@@ -57,9 +57,6 @@ def start_threads(custom_packet_callback_func=None):
     Args:
         custom_packet_callback_func (callable, optional): A user-supplied callback function
             to process packets. If provided, it will be used by the packet processor.
-
-    Returns:
-        None
     """
     # Make sure that only one single instance of Inspector core is running
     with global_state.global_state_lock:
@@ -120,12 +117,6 @@ def clean_up():
 
     This function should be called before exiting the Inspector application to
     restore system networking settings to their original state.
-
-    Args:
-        None
-
-    Returns:
-        None
     """
     networking.disable_ip_forwarding()
 
@@ -137,12 +128,6 @@ def main():
     This function checks for root privileges, starts all Inspector threads,
     and enters a loop to keep the application running until interrupted or
     signaled to stop. Handles graceful shutdown on KeyboardInterrupt.
-
-    Args:
-        None
-
-    Returns:
-        None
     """
     # Ensure that we are running as root
     if not common.is_admin():
