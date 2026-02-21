@@ -97,7 +97,8 @@ def process_packet_helper(pkt):
     # ====================
 
     process_client_hello(pkt)
-    process_http_user_agent(pkt)
+    # TODO: Still needs more testing, but more urgent patch is needed now...
+    # process_http_user_agent(pkt)
 
     # Process flow
     return process_flow(pkt)

@@ -55,6 +55,7 @@ classifiers = [
 [project.scripts]
 oui_parser = "libinspector.oui_parser:main"
 libinspector = "libinspector.core:main"
+mdns_discovery_helper = "libinspector.mdns_discovery_helper:main"
 
 [project.urls]
 Homepage = "https://inspector.engineering.nyu.edu/"

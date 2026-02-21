@@ -19,7 +19,6 @@ Typical usage example:
 import logging
 import json
 import subprocess
-import sys
 from . import global_state
 
 
@@ -45,7 +44,7 @@ def start():
 
     # Run the mdns_discovery_helper in a separate subprocess
     proc = subprocess.Popen(
-        [sys.executable, '-m', 'libinspector.mdns_discovery_helper'],
+        ['mdns_discovery_helper'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )
