@@ -37,11 +37,11 @@ class SafeLoopThread(object):
         func (callable): The function to execute repeatedly.
         args (list, optional): Positional arguments to pass to the function. Defaults to [].
         kwargs (dict, optional): Keyword arguments to pass to the function. Defaults to {}.
-        sleep_time (int or float, optional): Seconds to sleep between function calls. Defaults to 0.
+        sleep_time (int, optional): Seconds to sleep between function calls. Defaults to 0.
 
     """
 
-    def __init__(self, func, args=[], kwargs={}, sleep_time=0) -> None:
+    def __init__(self, func, args: list = None, kwargs: dict = None, sleep_time: int = 0) -> None:
         """
         Initialize the SafeLoopThread and starts the background daemon thread.
 
@@ -53,8 +53,12 @@ class SafeLoopThread(object):
             func (callable): The function to execute repeatedly in the thread.
             args (list, optional): Positional arguments to pass to the function. Defaults to [].
             kwargs (dict, optional): Keyword arguments to pass to the function. Defaults to {}.
-            sleep_time (int or float, optional): Seconds to sleep between function calls. Defaults to 0.
+            sleep_time (int, optional): Seconds to sleep between function calls. Defaults to 0.
         """
+        if args is None:
+            args = []
+        if kwargs is None:
+            kwargs = {}
         self._func = func
         self._func_args = args
         self._func_kwargs = kwargs
@@ -73,12 +77,6 @@ class SafeLoopThread(object):
         (including traceback and invocation details) is logged and written to stderr. After each
         execution (successful or not), the method sleeps for the configured interval before
         restarting the function.
-
-        Args:
-            None
-
-        Returns:
-            None
         """
         while True:
             try:

@@ -1,12 +1,12 @@
 import functools
 import os
-# import geoip2.database as database
+import geoip2.database as database
 import json
 from . import networking
 
-#ip_country_parser = database.Reader(
-#    os.path.join(os.path.dirname(__file__), 'data', 'geolite', 'GeoLite2-Country.mmdb')
-#)
+ip_country_parser = database.Reader(
+    os.path.join(os.path.dirname(__file__), 'data', 'geolite', 'GeoLite2-Country.mmdb')
+)
 
 _full_block_list_dict = {}
 
@@ -25,13 +25,12 @@ def get_country_from_ip_addr(remote_ip_addr: str) -> str:
     if networking.is_private_ip_addr(remote_ip_addr):
         return '(local network)'
 
-    #try:
-        #country = ip_country_parser.country(remote_ip_addr).country.name
-        #if country:
-        #    return country
-    #except Exception:
-    #    pass
-
+    try:
+        country = ip_country_parser.country(remote_ip_addr).country.name
+        if country:
+            return country
+    except Exception:
+        pass
     return ''
 
 
