@@ -97,8 +97,7 @@ def process_packet_helper(pkt):
     # ====================
 
     process_client_hello(pkt)
-    # TODO: Still needs more testing, but more urgent patch is needed now...
-    # process_http_user_agent(pkt)
+    process_http_user_agent(pkt)
 
     # Process flow
     return process_flow(pkt)
@@ -522,7 +521,6 @@ def process_http_user_agent(pkt):
     conn, rw_lock = global_state.db_conn_and_lock
 
     with rw_lock:
-        # TODO: Ask Danny, can this change?
         try:
             conn.execute('''
                      UPDATE devices
