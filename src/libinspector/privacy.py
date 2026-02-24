@@ -1,9 +1,12 @@
 import functools
 import os
+import sys
 import geoip2.database as database
 import json
+import logging
 from . import networking
 
+logger = logging.getLogger(__name__)
 ip_country_parser = database.Reader(
     os.path.join(os.path.dirname(__file__), 'data', 'geolite', 'GeoLite2-Country.mmdb')
 )
@@ -55,14 +58,18 @@ def initialize_ad_tracking_db():
     Run only once at startup.
     """
     _full_block_list_dict.clear()
-    tracker_json_list = ['android-tds.json', 'ios-tds.json']
-
-    for tracker_json_file in tracker_json_list:
-        tracker_path = os.path.join(os.path.dirname(__file__), 'data', 'trackers', tracker_json_file)
+    tracker_json_directory = os.path.join(os.path.dirname(__file__), 'data', 'trackers')
+    for tracker_json_file in os.listdir(tracker_json_directory):
+        if not tracker_json_file.endswith('.json'):
+            continue
+        tracker_path = os.path.join(tracker_json_directory, tracker_json_file)
         tracker_path = os.path.abspath(tracker_path)
-
-        with open(tracker_path, 'r') as f:
-            _full_block_list_dict.update(parse_tracking_json(json.load(f)))
+        try:
+            with open(tracker_path, 'r') as f:
+                _full_block_list_dict.update(parse_tracking_json(json.load(f)))
+        except Exception:
+            logger.exception(f"Error loading tracker file: {tracker_path}")
+            continue
 
 
 def is_ad_tracked(domain: str) -> bool:
@@ -75,3 +82,11 @@ def is_ad_tracked(domain: str) -> bool:
     """
     initialize_ad_tracking_db()
     return domain in _full_block_list_dict
+
+
+def domain_ads():
+    print(sys.argv[1], "\t", is_ad_tracked(sys.argv[1]))
+
+
+def country_ip():
+    print(sys.argv[1], "\t", get_country_from_ip_addr(sys.argv[1]))

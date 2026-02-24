@@ -153,7 +153,7 @@ def main():
     try:
         with open(sys.argv[1], 'r', encoding='utf-8', errors='ignore') as f:
             for line in f:
-                print(line.strip(), '->', get_vendor(line.strip()))
+                print(line.strip(), '\t', get_vendor(line.strip()))
     except FileNotFoundError:
         print(f"File not found: {sys.argv[1]}")
 
