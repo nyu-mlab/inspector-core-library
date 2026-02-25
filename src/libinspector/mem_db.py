@@ -21,18 +21,12 @@ import sqlite3
 import threading
 import logging
 import os
-from platformdirs import user_data_dir
-
 from .common import get_env_bool
 from .oui_parser import get_vendor
 
 
 logger = logging.getLogger(__name__)
-# Writes the in-memory database to disk for debugging purposes, only if the
-# environment variable `USE_IN_MEMORY_DB` is explicitly not set to true (default is true)
-APP_NAME = "iot-inspector"
-DATA_DIR = user_data_dir(APP_NAME)
-debug_db_path = os.path.join(DATA_DIR, 'debug_mem_db.db')
+debug_db_path = 'debug_mem_db.db'
 
 
 def initialize_db():
@@ -60,10 +54,16 @@ def initialize_db():
         - If `use_in_memory_db` is False in the configuration, the database is persisted to `debug_mem_db.db`.
         - The function must be called before any database operations are performed.
     """
-    db_uri = ':memory:'
-    if not get_env_bool('USE_IN_MEMORY_DB', True):
+    
+    use_mem = get_env_bool('USE_IN_MEMORY_DB', True)
+    logger.warning("[DB] Initializing IoT Inspector Database USE_IN_MEMORY value: %s)", os.getenv('USE_IN_MEMORY_DB'))
+    logger.warning("[DB] Initializing IoT Inspector Database (in-memory: %s)", use_mem)
+
+    if use_mem:
+        logger.warning('[DB] Saving IoT Inspector Database to memory (not persisted to disk)')
+        db_uri = ':memory:'
+    else:
         logger.warning(f'[DB] Saving IoT Inspector Database to the file: {debug_db_path}')
-        os.makedirs(DATA_DIR, exist_ok=True)
         db_uri = debug_db_path
 
     # Connect to an in-memory SQLite database
@@ -74,7 +74,12 @@ def initialize_db():
     rw_lock = threading.Lock()
 
     # Should we arp-spoof every device we discovered via ARP scanning?
+    logger.warning("[DB] Initializing IoT Inspector SCAN_ALL_DEVICES value: %s)", os.getenv('SCAN_ALL_DEVICES'))
     inspect_every_device_by_default = get_env_bool('SCAN_ALL_DEVICES', False)
+    if inspect_every_device_by_default:
+        logger.warning('[DB] Will inspect every device by default')
+    else:
+        logger.warning('[DB] will NOT inspect every device by default')
 
     with rw_lock:
         cursor = conn.cursor()

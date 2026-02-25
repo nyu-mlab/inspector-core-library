@@ -140,7 +140,6 @@ def get_default_route() -> tuple:
 
     # Try to obtain the route table for at most 30 seconds
     for _ in range(15):
-
         # Get all routes
         sc.conf.route.resync()
         routes = sc.conf.route.routes
@@ -192,7 +191,7 @@ def get_my_mac() -> str:
     return my_mac_addr
 
 
-def get_my_mac_set(iface_filter=None) -> set:
+def get_my_mac_set(iface_filter: str = None) -> set:
     """
     Return a set of MAC addresses for the current host.
 
@@ -214,7 +213,6 @@ def get_my_mac_set(iface_filter=None) -> set:
                 out_set.add(mac)
 
     return out_set
-
 
 
 def get_network_mask():
@@ -268,7 +266,7 @@ def get_network_ip_range() -> set:
 
 
 
-def is_private_ip_addr(ip_addr):
+def is_private_ip_addr(ip_addr: str):
     """
     Determine if the given IP address is a private (non-global) address.
 

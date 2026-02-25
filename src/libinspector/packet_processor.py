@@ -73,7 +73,6 @@ def process_packet_helper(pkt):
     # ====================
     # Process individual packets and terminate
     # ====================
-
     if sc.ARP in pkt:
         return process_arp(pkt)
 
@@ -97,8 +96,7 @@ def process_packet_helper(pkt):
     # ====================
 
     process_client_hello(pkt)
-    # TODO: Still needs more testing, but more urgent patch is needed now...
-    # process_http_user_agent(pkt)
+    process_http_user_agent(pkt)
 
     # Process flow
     return process_flow(pkt)
@@ -483,24 +481,34 @@ def process_http_user_agent(pkt):
     if sc.TCP not in pkt or pkt[sc.TCP].dport not in [80, 8080]:
         return
 
+    logger.debug(f'[Pkt Processor] Processing potential HTTP packet from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}')
+
     # Check for Raw layer (where HTTP payload resides)
     if sc.Raw not in pkt:
         return
 
+    logger.debug(f'[Pkt Processor] Found Raw layer in packet from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, attempting to decode HTTP payload')
+
     # Extract HTTP payload and attempt to decode
     try:
-        payload = pkt[sc.Raw].load.decode('latin-1')
+        payload = pkt[sc.Raw].load.decode('utf-8')
     except Exception:
         return
+
+    logger.debug(f'[Pkt Processor] Decoded HTTP payload from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, checking for User-Agent header')
 
     # Check if this is an HTTP GET/POST request (only requests contain User-Agent)
     if not payload.startswith(('GET ', 'POST ')):
         return
 
+    logger.debug(f'[Pkt Processor] HTTP request detected from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, looking for User-Agent header')
+
     # Look for the User-Agent header
     user_agent_start_tag = 'User-Agent: '
     if user_agent_start_tag not in payload:
         return
+
+    logger.debug(f'[Pkt Processor] User-Agent header found in HTTP request from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, extracting value')
 
     user_agent_str = ''
     try:
@@ -513,6 +521,8 @@ def process_http_user_agent(pkt):
     except Exception:
         return
 
+    logger.debug(f'[Pkt Processor] Extracted User-Agent string: "{user_agent_str}" from HTTP request from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}')
+
     if len(user_agent_str) == 0:
         return
 
@@ -522,7 +532,6 @@ def process_http_user_agent(pkt):
     conn, rw_lock = global_state.db_conn_and_lock
 
     with rw_lock:
-        # TODO: Ask Danny, can this change?
         try:
             conn.execute('''
                      UPDATE devices

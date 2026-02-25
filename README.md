@@ -18,18 +18,6 @@ pip install libinspector
 
 ### Running the Inspector
 
-To run the Inspector, you need to activate the virtual environment first and then run the following command:
-
-```sh
-sudo $(which python) -m libinspector.core
-```
-
-If you're debugging, you can run the following to reset the database and start the Inspector:
-
-```sh
-sudo truncate -s 0 inspector.log; sudo rm -f debug_mem_db.db; sudo $(which $(which python)) -m libinspector.core
-```
-
 For debugging purposes, you can also set the following environment variables to control the behavior of the Inspector Core:
 
 | Variable           | Description                                                                                          | Default |
@@ -38,6 +26,12 @@ For debugging purposes, you can also set the following environment variables to 
 | `SCAN_ALL_DEVICES` | Set to `true` to ARP-spoof all devices on the network BY DEFAULT. Disabled by default.               | `false` |
 | `ARP_SPOOF_ROUTER` | Set to `false` to NOT ARP-spoof the router.                                                          | `true`  |
 | `ARP_SPOOF_DEVICE` | Set to `false` to NOT ARP-spoof the device.                                                          | `true`  |
+
+To run the Inspector, you need to activate the virtual environment first and then run the following command (You need to pass environment variables here too):
+
+```sh
+sudo USE_IN_MEMORY_DB=false SCAN_ALL_DEVICES=true PYTHONPATH=~/.local/lib/python3.11/site-packages python3 -m libinspector.core
+```
 
 #### How to set environment variables (Linux/macOS):
 ```bash
