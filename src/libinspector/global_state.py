@@ -48,11 +48,11 @@ from typing import Callable, Any, Tuple
 global_state_lock = threading.Lock()
 
 # Network variables set up update_network_info
-host_ip_addr = ''
-host_mac_addr = ''
-host_active_interface = ''
-gateway_ip_addr = ''
-ip_range = []
+host_ip_addr : str = ''
+host_mac_addr : str = ''
+host_active_interface : str = ''
+gateway_ip_addr : str = ''
+ip_range : list = []
 
 # In-memory database connection and lock (Exclusive WRITE Lock)
 db_conn_and_lock: Tuple[Any, threading.Lock] | None = None
@@ -63,11 +63,11 @@ db_conn_and_read_only_lock: Tuple[Any, threading.RLock] | None = None
 
 # Whether the application is running or not. True by default; if false, the
 # entire application shuts down.
-is_running = True
+is_running : bool = True
 
 # Whether inspection mode is enabled or not. True by default; if not, stops all
 # inspection. Does not change the is_inspected state in the devices table.
-is_inspecting = True
+is_inspecting : bool = True
 
 # Make sure that only one single instance of Inspector core is running
 inspector_started = [False]
