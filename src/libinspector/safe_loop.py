@@ -15,6 +15,7 @@ import logging
 import datetime
 import traceback
 import sys
+from typing import Callable
 
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ class SafeLoopThread(object):
 
     """
 
-    def __init__(self, func, args: list = None, kwargs: dict = None, sleep_time: int = 0) -> None:
+    def __init__(self, func: Callable, name: str = "", args: list = None, kwargs: dict = None, sleep_time: int = 0):
         """
         Initialize the SafeLoopThread and starts the background daemon thread.
 
@@ -59,12 +60,13 @@ class SafeLoopThread(object):
             args = []
         if kwargs is None:
             kwargs = {}
+        self._name = name
         self._func = func
         self._func_args = args
         self._func_kwargs = kwargs
         self._sleep_time = sleep_time
 
-        th = threading.Thread(target=self._execute_repeated_func_safe)
+        th = threading.Thread(name=self._name, target=self._execute_repeated_func_safe)
         th.daemon = True
         th.start()
 
