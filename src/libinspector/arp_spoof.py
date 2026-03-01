@@ -116,7 +116,7 @@ def start():
 
     logger.info(f'[arp_spoof] Spoofed internet traffic for {spoof_count} devices')
     if spoof_count > 0:
-        spoof_stat_dict['last_internet_spoof_ts'] = time.time()
+        spoof_stat_dict['last_internet_spoof_ts'] = int(time.time())
 
 
 

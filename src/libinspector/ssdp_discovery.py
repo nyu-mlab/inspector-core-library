@@ -134,23 +134,12 @@ import xml.etree.ElementTree as ET
 import json
 import logging
 import time
-
+import argparse
+from typing import Iterator
 from . import global_state
 
 
 logger = logging.getLogger(__name__)
-
-
-# SSDP multicast address and port
-SSDP_ADDR = "239.255.255.250"
-SSDP_PORT = 1900
-MSEARCH_MSG = f"""M-SEARCH * HTTP/1.1
-HOST: {SSDP_ADDR}:{SSDP_PORT}
-MAN: "ssdp:discover"
-MX: 3
-ST: ssdp:all
-
-""".encode("utf-8")
 
 
 def start():
@@ -164,9 +153,6 @@ def start():
     Side Effects:
         - Updates the `devices` table in the database with discovered device information.
         - Logs discovered devices using the module logger.
-
-    Returns:
-        None
     """
     conn, rw_lock = global_state.db_conn_and_lock
 
@@ -200,7 +186,7 @@ def start():
             logger.info(f"[ssdp] Discovered device: {discovered_device_dict['device_ip_addr']}")
 
 
-def fetch_and_parse_xml(url):
+def fetch_and_parse_xml(url: str) -> dict | None:
     """
     Fetch the XML from the given URL and parse it into a dictionary.
 
@@ -231,7 +217,7 @@ def fetch_and_parse_xml(url):
         return None
 
 
-def xml_to_dict(element):
+def xml_to_dict(element: ET.Element) -> dict | str:
     """
     Convert an XML element and its children into a dictionary.
 
@@ -241,7 +227,7 @@ def xml_to_dict(element):
     Returns:
         dict or str: The element and its children as a dictionary, or the text if it has no children.
     """
-    def strip_ns(tag):
+    def strip_ns(tag: str) -> str:
         return tag.split('}', 1)[-1] if '}' in tag else tag
 
     if len(element) == 0:
@@ -249,7 +235,7 @@ def xml_to_dict(element):
     return {strip_ns(element.tag): {strip_ns(child.tag): xml_to_dict(child) for child in element}}
 
 
-def parse_device_info(device_info):
+def parse_device_info(device_info: str) -> dict:
     """
     Parsee the device info string into a dictionary.
 
@@ -268,8 +254,7 @@ def parse_device_info(device_info):
     return info_dict
 
 
-
-def discover_upnp_devices(timeout=5):
+def discover_upnp_devices(timeout: int = 5) -> Iterator[dict]:
     """
     Discover UPnP devices using SSDP.
 
@@ -279,55 +264,78 @@ def discover_upnp_devices(timeout=5):
     Returns:
         Iterator[dict]: An iterator of discovered device dictionaries.
     """
+    # SSDP multicast address and port
+    SSDP_ADDR = "239.255.255.250"
+    SSDP_PORT = 1900
+    MSEARCH_MSG = f"""M-SEARCH * HTTP/1.1
+    HOST: {SSDP_ADDR}:{SSDP_PORT}
+    MAN: "ssdp:discover"
+    MX: 3
+    ST: ssdp:all
+
+    """.encode("utf-8")
+
     # Set to store the IP addresses of discovered devices
     device_ip_set = set()
 
-    # Create a UDP socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.settimeout(timeout)
+    # Create a UDP socket with automatic resource management
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.settimeout(timeout)
 
-    # Bind to a random port and send the SSDP discovery request
-    sock.sendto(MSEARCH_MSG, (SSDP_ADDR, SSDP_PORT))
+        # Bind to a random port and send the SSDP discovery request
+        sock.sendto(MSEARCH_MSG, (SSDP_ADDR, SSDP_PORT))
 
-    try:
-        while True:
-            response, addr = sock.recvfrom(4096)
-            ssdp_response = response.decode("utf-8", errors="ignore")
-            device_ip_addr = addr[0]
+        try:
+            while True:
+                response, addr = sock.recvfrom(4096)
+                ssdp_response = response.decode("utf-8", errors="ignore")
+                device_ip_addr = addr[0]
 
-            # Skip if we have already seen this device's IP address
-            if device_ip_addr in device_ip_set:
-                continue
-            device_ip_set.add(device_ip_addr)
+                # Skip if we have already seen this device's IP address
+                if device_ip_addr in device_ip_set:
+                    continue
+                device_ip_set.add(device_ip_addr)
 
-            device_dict = {
-                'device_ip_addr': device_ip_addr,
-                'ssdp_response_dict': None,
-                'location_contents': None
-            }
+                device_dict = {
+                    'device_ip_addr': device_ip_addr,
+                    'ssdp_response_dict': None,
+                    'location_contents': None
+                }
 
-            try:
-                device_dict["ssdp_response_dict"] = parse_device_info(ssdp_response)
-            except Exception:
-                pass
-            else:
-                if "LOCATION" in device_dict["ssdp_response_dict"]:
-                    xml_json = fetch_and_parse_xml(device_dict["ssdp_response_dict"]["LOCATION"])
-                    if xml_json:
-                        device_dict['location_contents'] = xml_json
+                try:
+                    device_dict["ssdp_response_dict"] = parse_device_info(ssdp_response)
+                except Exception:
+                    pass
+                else:
+                    if "LOCATION" in device_dict["ssdp_response_dict"]:
+                        xml_json = fetch_and_parse_xml(device_dict["ssdp_response_dict"]["LOCATION"])
+                        if xml_json:
+                            device_dict['location_contents'] = xml_json
 
-            yield device_dict
+                yield device_dict
 
-    except socket.timeout:
-        pass
+        except socket.timeout:
+            pass
 
-    finally:
-        sock.close()
+
+def main():
+    parser = argparse.ArgumentParser(description="Discover UPnP devices using SSDP.")
+    parser.add_argument(
+        "-t", "--timeout",
+        dest="timeout",
+        action="store",
+        type=int,
+        default=10,
+        help="The timeout to listen for SSDP responses in seconds (default: 10)",
+        required=False
+    )
+    args = parser.parse_args()
+
+    for discovered_device_dict in discover_upnp_devices(timeout=args.timeout):
+        print(json.dumps(discovered_device_dict, indent=4))
+        print('*' * 60)
 
 
 if __name__ == "__main__":
-    # Test code
-    for discovered_device_dict in discover_upnp_devices():
-        print(json.dumps(discovered_device_dict, indent=2))
-        print('*' * 60)
+    main()

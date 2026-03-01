@@ -44,7 +44,7 @@ def start():
         logger.error(f'[Pkt Processor] Error processing packet: {e} for packet: {pkt}\n{traceback.format_exc()}')
 
 
-def process_packet_helper(pkt):
+def process_packet_helper(pkt: sc.Packet):
     """
     Process a captured network packet and dispatch it to the appropriate handler.
 
@@ -102,7 +102,7 @@ def process_packet_helper(pkt):
     return process_flow(pkt)
 
 
-def process_arp(pkt):
+def process_arp(pkt: sc.Packet):
     """
     Process an ARP packet to update the ARP cache and device information in the database.
 
@@ -158,7 +158,7 @@ def process_arp(pkt):
         ''')
 
 
-def process_dns(pkt):
+def process_dns(pkt: sc.Packet):
     """
     Process a DNS packet to extract the querying device, hostname, and associated IP addresses.
 
@@ -224,17 +224,17 @@ def process_dns(pkt):
     write_hostname_ip_mapping_to_db(device_mac_addr, hostname, ip_set, 'dns')
 
 
-def write_hostname_ip_mapping_to_db(device_mac_addr, hostname, ip_set, data_source):
+def write_hostname_ip_mapping_to_db(device_mac_addr: str, hostname: str, ip_set: set[str], data_source: str):
     """
     Insert or update hostname-to-IP mappings in the `hostnames` table and log the operation.
 
     This code iterates over a set of IP addresses and, for each, inserts a new record or updates an existing one in the `hostnames` database table with the provided hostname, current timestamp, and data source. The operation is performed within a write lock to ensure thread safety. After updating the database, it logs the mapping of the device's MAC address, hostname, and associated IP addresses for traceability.
 
     Args:
-        ip_set: Set of IP addresses to associate with the hostname.
-        hostname: The hostname to map to each IP address.
-        data_source: The source of the hostname information.
-        device_mac_addr: The MAC address of the device (used for logging).
+        ip_set (set): Set of IP addresses to associate with the hostname.
+        hostname (str): The hostname to map to each IP address.
+        data_source (str): The source of the hostname information.
+        device_mac_addr (str): The MAC address of the device (used for logging).
 
     Returns:
         None
@@ -257,7 +257,7 @@ def write_hostname_ip_mapping_to_db(device_mac_addr, hostname, ip_set, data_sour
     logger.info(f'[Pkt Processor] Device {device_mac_addr}: {hostname} -> {ip_set} (data_source: {data_source})')
 
 
-def process_flow(pkt):
+def process_flow(pkt: sc.Packet):
     """
     Process a TCP or UDP packet and update the `network_flows` table with flow information.
 
@@ -386,7 +386,7 @@ def update_hostnames_in_flows():
     logger.info(f'[Pkt Processor] Updated {row_count} rows in network_flows with hostnames.')
 
 
-def process_dhcp(pkt):
+def process_dhcp(pkt: sc.Packet):
     """
     Process a DHCP packet to extract the device hostname and update the devices table in the database.
 
@@ -440,7 +440,7 @@ def process_dhcp(pkt):
     logger.info(f'[Pkt Processor] DHCP: Device {device_mac}: {device_hostname}')
 
 
-def process_client_hello(pkt):
+def process_client_hello(pkt: sc.Packet):
     """
     Extract the Server Name Indication (SNI) from a TLS ClientHello packet and updates the database with the mapping.
 
@@ -465,7 +465,7 @@ def process_client_hello(pkt):
     write_hostname_ip_mapping_to_db(device_mac_addr, sni, {remote_ip_addr}, 'sni')
 
 
-def process_http_user_agent(pkt):
+def process_http_user_agent(pkt: sc.Packet):
     """
     Extract the User-Agent header from an HTTP packet and update the devices' metadata.
 
