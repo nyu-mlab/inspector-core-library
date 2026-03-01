@@ -10,11 +10,7 @@ SafeLoopThread(my_func, args=['a'], kwargs={'b': 2}, sleep_time=1)
 
 """
 import threading
-import time
 import logging
-import datetime
-import traceback
-import sys
 from typing import Callable
 
 
@@ -56,19 +52,41 @@ class SafeLoopThread(object):
             kwargs (dict, optional): Keyword arguments to pass to the function. Defaults to {}.
             sleep_time (int, optional): Seconds to sleep between function calls. Defaults to 0.
         """
-        if args is None:
-            args = []
-        if kwargs is None:
-            kwargs = {}
-        self._name = name
         self._func = func
-        self._func_args = args
-        self._func_kwargs = kwargs
+        self._func_args = args or []
+        self._func_kwargs = kwargs or {}
         self._sleep_time = sleep_time
+        self._stop_event = threading.Event()
+        self._run_event = threading.Event()
+        self._run_event.set()
 
-        th = threading.Thread(name=self._name, target=self._execute_repeated_func_safe)
+        th = threading.Thread(target=self._execute_repeated_func_safe)
+        self.name = name if (name and name.strip()) else th.name
+        th.name = self.name
         th.daemon = True
         th.start()
+        self._thread = th
+
+    def pause(self):
+        """Keep the thread alive, but stop executing the function."""
+        logger.info(f"[SafeLoopThread] Pausing {self.name}")
+        self._run_event.clear()
+
+    def resume(self):
+        """Start executing the function again."""
+        logger.info(f"[SafeLoopThread] Resuming {self.name}")
+        self._run_event.set()
+
+    def stop(self):
+        """Kill the thread entirely."""
+        self._stop_event.set()
+        self._run_event.set()
+
+    def join(self, timeout: int = None):
+        self._thread.join(timeout)
+
+    def is_alive(self):
+        return self._thread.is_alive()
 
     def _execute_repeated_func_safe(self):
         """
@@ -76,23 +94,26 @@ class SafeLoopThread(object):
 
         This method runs in a background daemon thread. It continuously calls the user-provided
         function with the specified arguments. If the function raises an exception, the error
-        (including traceback and invocation details) is logged and written to stderr. After each
+        (including traceback and invocation details) is logged and written to the log file. After each
         execution (successful or not), the method sleeps for the configured interval before
         restarting the function.
         """
-        while True:
+        while not self._stop_event.is_set():
+            # If _run_event is clear, the thread hangs here using 0% CPU.
+            # It only moves forward once resume() is called.
+            self._run_event.wait()
+
+            # Double check stop event in case it was stopped while paused
+            if self._stop_event.is_set():
+                break
             try:
                 self._func(*self._func_args, **self._func_kwargs)
-            except Exception as e:
-                err_msg = '=' * 80 + '\n'
-                err_msg += 'Time: %s\n' % datetime.datetime.today()
-                err_msg += 'Function: %s %s %s\n' % (self._func, self._func_args, self._func_kwargs)
-                err_msg += 'Exception: %s\n' % e
-                err_msg += str(traceback.format_exc()) + '\n\n\n'
-
-                sys.stderr.write(err_msg + '\n')
-                logger.error(err_msg)
-
+            except Exception:
+                logger.exception(f"[SafeLoopThread] Crash in {self.name} ({self._func.__name__}) "
+                                 f"with args={self._func_args} kwargs={self._func_kwargs}")
+                self._stop_event.wait(timeout=1)
             finally:
                 if self._sleep_time:
-                    time.sleep(self._sleep_time)
+                    self._stop_event.wait(timeout=self._sleep_time)
+
+        logger.info(f"[SafeLoopThread] === {self.name} HAS OFFICIALLY EXITED ===")

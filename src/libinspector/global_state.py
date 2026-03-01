@@ -42,6 +42,7 @@ Usage:
 """
 import threading
 import queue
+from .safe_loop import SafeLoopThread
 from typing import Callable, Any, Tuple
 
 # Should be held whenever accessing the global state's variables.
@@ -99,6 +100,9 @@ labeling_session_start_ts: int | None = None
 
 # The epoch timestamp when the labeling packet collection officially ended.
 labeling_session_end_ts: int | None = None
+
+# A list of all active Threads
+active_threads : list[SafeLoopThread] = []
 
 # =========================================================================
 # NEW: Application Status and Monitoring Variables
