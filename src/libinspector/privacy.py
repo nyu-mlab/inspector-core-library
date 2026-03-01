@@ -85,8 +85,14 @@ def is_ad_tracked(domain: str) -> bool:
 
 
 def domain_ads():
+    if len(sys.argv) != 2:
+        print("Usage: domain_ads <domain>")
+        return
     print(sys.argv[1], "\t", is_ad_tracked(sys.argv[1]))
 
 
 def country_ip():
+    if len(sys.argv) != 2:
+        print("Usage: country_ip <ip_address>")
+        return
     print(sys.argv[1], "\t", get_country_from_ip_addr(sys.argv[1]))

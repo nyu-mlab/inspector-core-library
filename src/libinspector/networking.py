@@ -266,7 +266,7 @@ def get_network_ip_range() -> set:
 
 
 
-def is_private_ip_addr(ip_addr: str):
+def is_private_ip_addr(ip_addr: str) -> bool:
     """
     Determine if the given IP address is a private (non-global) address.
 
@@ -313,6 +313,9 @@ def enable_ip_forwarding():
         cmd = ['sysctl', '-w', 'net.ipv4.ip_forward=1']
     elif os_platform == 'windows':
         cmd = ['powershell', 'Set-NetIPInterface', '-Forwarding', 'Enabled']
+    else:
+        logger.error(f'[networking] Unsupported OS platform: {os_platform}. Cannot enable IP forwarding.')
+        sys.exit(1)
 
     if subprocess.call(cmd) != 0:
         logger.error('[networking] Failed to enable IP forwarding.')
@@ -334,6 +337,9 @@ def disable_ip_forwarding():
         cmd = ['sysctl', '-w', 'net.ipv4.ip_forward=0']
     elif os_platform == 'windows':
         cmd = ['powershell', 'Set-NetIPInterface', '-Forwarding', 'Disabled']
+    else:
+        logger.error(f'[networking] Unsupported OS platform: {os_platform}. Cannot disable IP forwarding.')
+        sys.exit(1)
 
     if subprocess.call(cmd) != 0:
         logger.error('[networking] Failed to disable IP forwarding.')

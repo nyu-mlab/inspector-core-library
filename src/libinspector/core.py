@@ -23,6 +23,7 @@ import logging
 import time
 import sys
 import threading
+from typing import Callable, Optional
 from . import global_state
 from . import mem_db
 from . import networking
@@ -41,7 +42,7 @@ logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format='%(asctime)s 
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
-def start_threads(custom_packet_callback_func=None):
+def start_threads(custom_packet_callback_func: Optional[Callable] = None):
     """
     Initialize and starts all core Inspector threads and services.
 

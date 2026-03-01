@@ -52,9 +52,10 @@ classifiers = [
 ]
 
 [project.scripts]
-oui_parser = "libinspector.oui_parser:main"
 libinspector = "libinspector.core:main"
+oui_parser = "libinspector.oui_parser:main"
 mdns_discovery = "libinspector.mdns_discovery:main"
+ssdp_discovery = "libinspector.ssdp_discovery:main"
 country_ip = "libinspector.privacy:country_ip"
 domain_ads = "libinspector.privacy:domain_ads"
 

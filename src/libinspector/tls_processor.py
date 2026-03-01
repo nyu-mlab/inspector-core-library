@@ -5,9 +5,10 @@ This module is in a separate file because I don't want `from scapy.all import *`
 
 """
 from scapy.layers.tls.handshake import TLSClientHello
+import scapy.all as sc
 
 
-def extract_sni(packet) -> str:
+def extract_sni(packet: sc.Packet) -> str:
     """
     Return the Server Name Indication (SNI) from a TLS packet, or an empty string if not present.
 

@@ -73,7 +73,7 @@ def inspector_is_running() -> bool:
         return global_state.is_running
 
 
-def add_packet_to_queue(pkt):
+def add_packet_to_queue(pkt: sc.Packet):
     """
     Add a captured packet to the global packet queue for processing.
 
@@ -97,4 +97,4 @@ def add_packet_to_queue(pkt):
     current_time = time.time()
     if current_time - print_queue_size_dict['last_updated_ts'] > 10:
         logger.info(f'[packet_collector] Packet queue size: {global_state.packet_queue.qsize()}')
-        print_queue_size_dict['last_updated_ts'] = current_time
+        print_queue_size_dict['last_updated_ts'] = int(current_time)
