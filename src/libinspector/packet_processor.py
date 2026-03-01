@@ -110,9 +110,6 @@ def process_arp(pkt: sc.Packet):
 
     Args:
         pkt: The ARP packet (scapy packet) to process.
-
-    Returns:
-        None
     """
     if not (pkt.op == 1 or pkt.op == 2):
         return
@@ -166,9 +163,6 @@ def process_dns(pkt: sc.Packet):
 
     Args:
         pkt: The network packet (scapy packet) containing the DNS data.
-
-    Returns:
-        None
     """
     src_mac_addr = pkt[sc.Ether].src
     dst_mac_addr = pkt[sc.Ether].dst
@@ -235,9 +229,6 @@ def write_hostname_ip_mapping_to_db(device_mac_addr: str, hostname: str, ip_set:
         hostname (str): The hostname to map to each IP address.
         data_source (str): The source of the hostname information.
         device_mac_addr (str): The MAC address of the device (used for logging).
-
-    Returns:
-        None
     """
     current_ts = int(time.time())
 
@@ -396,9 +387,6 @@ def process_dhcp(pkt: sc.Packet):
 
     Args:
         pkt: The network packet (scapy packet) to process.
-
-    Returns:
-        None
     """
     # Must be a DHCP Request broadcast
     if pkt[sc.Ether].dst != 'ff:ff:ff:ff:ff:ff':

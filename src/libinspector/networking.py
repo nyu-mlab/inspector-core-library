@@ -35,6 +35,7 @@ import scapy.all as sc
 import netaddr
 import logging
 import psutil
+import sys
 
 from . import global_state
 from . import common
