@@ -87,27 +87,33 @@ def start_threads(custom_packet_callback_func: Optional[Callable] = None):
     # Initialize the networking variables
     logger.info('[core] Initializing the networking variables')
 
-    networking.enable_ip_forwarding()
-    networking.update_network_info()
+    try:
+        networking.enable_ip_forwarding()
+        networking.update_network_info()
+    except RuntimeError:
+        logger.exception(f"Aborting startup")
+        with global_state.global_state_lock:
+            global_state.inspector_started[0] = False
+        raise
 
     logger.info('[core] Starting threads')
 
     # Update the network info from the OS every 60 seconds
-    safe_loop.SafeLoopThread(networking.update_network_info, sleep_time=60)
+    safe_loop.SafeLoopThread(networking.update_network_info, name="networking", sleep_time=60)
 
     # Discover devices on the network every 10 seconds
-    safe_loop.SafeLoopThread(arp_scanner.start, sleep_time=10)
+    safe_loop.SafeLoopThread(arp_scanner.start, name="arp_scanner", sleep_time=10)
 
     # Collect and process packets from the network
-    safe_loop.SafeLoopThread(packet_collector.start)
-    safe_loop.SafeLoopThread(packet_processor.start)
+    safe_loop.SafeLoopThread( packet_collector.start, name="packet_collector")
+    safe_loop.SafeLoopThread(packet_processor.start, name="packet_processor")
 
     # Spoof internet traffic
-    safe_loop.SafeLoopThread(arp_spoof.start, sleep_time=1)
+    safe_loop.SafeLoopThread(arp_spoof.start, name="arp_spoof", sleep_time=1)
 
     # Start the mDNS and UPnP scanner threads
-    safe_loop.SafeLoopThread(ssdp_discovery.start, sleep_time=5)
-    safe_loop.SafeLoopThread(mdns_discovery.start, sleep_time=5)
+    safe_loop.SafeLoopThread(ssdp_discovery.start, name="ssdp_discovery", sleep_time=5)
+    safe_loop.SafeLoopThread(mdns_discovery.start, name="mdns_discovery", sleep_time=5)
 
     logger.info('[core] Inspector started')
 
@@ -119,7 +125,10 @@ def clean_up():
     This function should be called before exiting the Inspector application to
     restore system networking settings to their original state.
     """
-    networking.disable_ip_forwarding()
+    try:
+        networking.disable_ip_forwarding()
+    except RuntimeError:
+        logger.exception("Error occurred while disabling IP forwarding during cleanup.")
 
 
 def main():

@@ -30,7 +30,6 @@ Import and use these functions to interact with and manage network configuration
 import ipaddress
 import socket
 import subprocess
-import sys
 import time
 import scapy.all as sc
 import netaddr
@@ -58,7 +57,7 @@ def get_mac_address_from_ip(ip_addr: str) -> str:
     """
     conn, rw_lock = global_state.db_conn_and_lock
 
-    # Run sql query to get the MAC address based on the IP address
+    # Run SQL query to get the MAC address based on the IP address
     with rw_lock:
         sql = 'SELECT mac_address FROM devices WHERE ip_address = ?'
         result = conn.execute(sql, (ip_addr,)).fetchone()
@@ -103,16 +102,16 @@ def update_network_info():
     and the set of IP addresses in the local network, and stores them in the global state object.
     Also logs the updated network information.
     """
-    (gateway_ip, iface, host_ip) = get_default_route()
+    gateway_ip, iface, host_ip = get_default_route()
+    my_mac = get_my_mac()
+    ip_range = get_network_ip_range()
     with global_state.global_state_lock:
         global_state.gateway_ip_addr = gateway_ip
         global_state.host_active_interface = iface
         global_state.host_ip_addr = host_ip
-        global_state.host_mac_addr = get_my_mac()
-        global_state.ip_range = get_network_ip_range()
-
-    logger.info(f'[networking] Gateway IP address: {global_state.gateway_ip_addr}, Host Interface: {global_state.host_active_interface}, Host IP address: {global_state.host_ip_addr}, Host MAC address: {global_state.host_mac_addr}, IP range: {len(global_state.ip_range)} IP addresses')
-
+        global_state.host_mac_addr = my_mac
+        global_state.ip_range = ip_range
+    logger.info(f'[networking] Gateway IP address: {gateway_ip}, Host Interface: {iface}, Host IP address: {host_ip}, Host MAC address: {my_mac}, IP range: {len(ip_range)} IP addresses')
 
 
 def get_default_route() -> tuple:
@@ -134,7 +133,7 @@ def get_default_route() -> tuple:
             iface_ip = s.getsockname()[0]
     except socket.error:
         logger.error('[networking] Inspector cannot run without network connectivity. Exiting.')
-        sys.exit(1)
+        raise RuntimeError('[networking] Inspector cannot run without network connectivity. Exiting.')
 
     default_route = None
 
@@ -171,7 +170,7 @@ def get_default_route() -> tuple:
 
     if default_route is None:
         logger.error('[networking] No default routes found after 30 seconds. Exiting.')
-        sys.exit(1)
+        raise RuntimeError('[networking] No default routes found after 30 seconds. Exiting.')
 
     return default_route
 
@@ -315,11 +314,11 @@ def enable_ip_forwarding():
         cmd = ['powershell', 'Set-NetIPInterface', '-Forwarding', 'Enabled']
     else:
         logger.error(f'[networking] Unsupported OS platform: {os_platform}. Cannot enable IP forwarding.')
-        sys.exit(1)
+        raise RuntimeError(f'[networking] Unsupported OS platform: {os_platform}. Cannot enable IP forwarding.')
 
     if subprocess.call(cmd) != 0:
         logger.error('[networking] Failed to enable IP forwarding.')
-        sys.exit(1)
+        raise RuntimeError('[networking] Failed to enable IP forwarding.')
 
 
 def disable_ip_forwarding():
@@ -339,9 +338,9 @@ def disable_ip_forwarding():
         cmd = ['powershell', 'Set-NetIPInterface', '-Forwarding', 'Disabled']
     else:
         logger.error(f'[networking] Unsupported OS platform: {os_platform}. Cannot disable IP forwarding.')
-        sys.exit(1)
+        raise RuntimeError(f'[networking] Unsupported OS platform: {os_platform}. Cannot disable IP forwarding.')
 
     if subprocess.call(cmd) != 0:
         logger.error('[networking] Failed to disable IP forwarding.')
-        sys.exit(1)
+        raise RuntimeError('[networking] Failed to disable IP forwarding.')
 
