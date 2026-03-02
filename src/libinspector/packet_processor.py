@@ -347,7 +347,7 @@ def update_hostnames_in_flows():
     This function runs at most once every 2 seconds. It checks if enough time has passed since the last update, and if so, it acquires a database lock and executes an SQL statement to update the `src_hostname` and `dest_hostname` fields in the `network_flows` table. The update is performed only for flows where either the source or destination hostname is missing and a matching IP-to-hostname mapping exists in the `hostnames` table. After the update, the function records the current timestamp and logs the number of rows affected. This ensures that the flow records reflect the most recent hostname information for easier analysis and tracking.
     """
     conn, rw_lock = global_state.db_conn_and_lock
-
+    row_count = 0
     with rw_lock:
         sql = '''
             UPDATE network_flows

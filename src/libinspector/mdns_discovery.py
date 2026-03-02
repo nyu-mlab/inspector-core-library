@@ -26,7 +26,9 @@ from zeroconf import Zeroconf, ServiceBrowser, ServiceListener
 import time
 import json
 import logging
+import threading
 from . import global_state
+from . import common
 
 logger = logging.getLogger(__name__)
 
@@ -83,20 +85,24 @@ class ServiceTypeListener(ServiceListener):
         print(f"[mDNS] [UPDATED SERVICE TYPE] {name}")
 
 
-def get_all_service_types(zeroconf: Zeroconf, timeout: int = 15) -> set:
+def get_all_service_types(zeroconf: Zeroconf, timeout: int = 15, stop_event: threading.Event = None) -> set:
     """
     Discover all available mDNS service types on the local network.
 
     Args:
         zeroconf (Zeroconf): An existing Zeroconf instance to use for service discovery.
         timeout (int, optional): Number of seconds to wait for service discovery. Defaults to 15.
-
+        stop_event (threading.Event, optional): An event to signal early termination of discovery. Defaults to None.
     Returns:
         set: A set of discovered mDNS service type names (str).
     """
     listener = ServiceTypeListener()
-    ServiceBrowser(zeroconf, "_services._dns-sd._udp.local.", listener)
-    time.sleep(timeout)
+    browser = ServiceBrowser(zeroconf, "_services._dns-sd._udp.local.", listener)
+
+    if smart_sleep(timeout, stop_event):
+        logger.info("[mDNS] Discovery aborted during service type scan.")
+
+    browser.cancel()
     return listener.service_types
 
 
@@ -195,20 +201,31 @@ def discover_mdns_devices(zeroconf: Zeroconf, service_type: str) -> MDNSDeviceLi
     return listener
 
 
-def get_mdns_devices(service_type_discovery_timeout: int = 10, device_discovery_timeout: int = 10):
+def smart_sleep(seconds: int, stop_event: threading.Event = None):
+    if stop_event:
+        return stop_event.wait(timeout=seconds)
+    else:
+        time.sleep(seconds)
+        return False
+
+
+def get_mdns_devices(service_type_discovery_timeout: int = 10, device_discovery_timeout: int = 10, stop_event: threading.Event = None):
     """
     Discover devices using mDNS and group them by IP address.
 
     Args:
         service_type_discovery_timeout (int, optional): Seconds to wait for service type discovery. Defaults to 10.
         device_discovery_timeout (int, optional): Seconds to wait for device discovery per service type. Defaults to 10.
-
+        stop_event (threading.Event, optional): An event to signal early termination of discovery. Defaults to None.
     Returns:
         dict: A dictionary mapping device IP addresses (str) to a list of dictionaries,
         each containing 'device_name' and 'device_properties' for a discovered device.
     """
     with Zeroconf() as zeroconf:
-        service_types = get_all_service_types(zeroconf, timeout=service_type_discovery_timeout)
+        service_types = get_all_service_types(zeroconf, timeout=service_type_discovery_timeout, stop_event=stop_event)
+
+        if stop_event and stop_event.is_set():
+            return {}
 
         listeners = []
         for service_type in service_types:
@@ -220,7 +237,7 @@ def get_mdns_devices(service_type_discovery_timeout: int = 10, device_discovery_
                 logger.error(f"Failed to browse {service_type}: {e}")
                 continue
 
-        time.sleep(device_discovery_timeout)
+        smart_sleep(device_discovery_timeout, stop_event)
 
         device_dictionary = dict()
         for listener in listeners:
@@ -232,11 +249,16 @@ def get_mdns_devices(service_type_discovery_timeout: int = 10, device_discovery_
         return device_dictionary
 
 
-def start():
+def start(stop_event: threading.Event = None, run_event: threading.Event = None):
+    if run_event:
+        run_event.wait()
+
+    if not common.inspector_is_running():
+        return
+
     logger.info("[mDNS] Discovering devices...")
 
-    # Parse the output of the subprocess
-    device_dict = get_mdns_devices()
+    device_dict = get_mdns_devices(stop_event=stop_event)
 
     # Add the discovered devices to the database
     conn, rw_lock = global_state.db_conn_and_lock
