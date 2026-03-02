@@ -375,7 +375,7 @@ def update_hostnames_in_flows():
     and tracking.
     """
     conn, rw_lock = global_state.db_conn_and_lock
-
+    row_count = 0
     with rw_lock:
         sql = '''
             UPDATE network_flows
@@ -404,8 +404,7 @@ def update_hostnames_in_flows():
         '''
         row_count = conn.execute(sql).rowcount
 
-    if row_count > 0:
-        logger.info(f'[Pkt Processor] Updated {row_count} rows in network_flows with hostnames.')
+    logger.info(f'[Pkt Processor] Updated {row_count} rows in network_flows with hostnames.')
 
 
 def process_dhcp(pkt: sc.Packet):
