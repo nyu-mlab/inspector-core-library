@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 sc.load_layer('tls')
 
-print_queue_size_dict = {'last_updated_ts': 0}
 
 
 def start(timeout: int = 10):
