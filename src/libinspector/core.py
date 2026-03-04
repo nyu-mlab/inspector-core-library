@@ -98,7 +98,7 @@ def start_threads(custom_packet_callback_func: Optional[Callable] = None):
         # Collect and process packets from the network
         safe_loop.SafeLoopThread(packet_collector.start, name="packet_collector"),
         safe_loop.SafeLoopThread(packet_processor.start, name="packet_processor"),
-        safe_loop.SafeLoopThread(packet_processor.update_hostnames_in_flows, name="hostname_updater", sleep_time=5),
+        safe_loop.SafeLoopThread(packet_processor.update_hostnames_in_flows, name="hostname_updater", sleep_time=30),
         # Spoof internet traffic
         safe_loop.SafeLoopThread(arp_spoof.start, name="arp_spoof", sleep_time=10),
         # Start the mDNS and UPnP scanner threads
@@ -131,8 +131,6 @@ def clean_up():
 
     for th in threads_to_kill:
         th.join(timeout=1)
-
-    for th in threads_to_kill:
         status = "SUCCESS" if not th.is_alive() else "HANGING"
         msg = f"[core] {status}: Thread '{th.name}'"
         logger.info(msg)

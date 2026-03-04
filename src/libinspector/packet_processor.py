@@ -21,33 +21,12 @@ from . import networking
 logger = logging.getLogger(__name__)
 
 
-def start(stop_event: threading.Event = None, run_event: threading.Event = None, timeout : int = 0.1):
+def start():
     """
     Worker strategy: Pull all available packets from the queue and process them in a single cycle.
     """
-    if run_event:
-        run_event.wait()
-
-    packets_to_process = []
-
-    # Drain the queue entirely so we can process in bulk
-    while not global_state.packet_queue.empty():
-        packets_to_process.append(global_state.packet_queue.get(block=False))
-
-    if not packets_to_process:
-        if stop_event:
-            stop_event.wait(timeout=timeout)
-        else:
-            time.sleep(timeout)
-        return
-
-    # Process the batch
-    for pkt in packets_to_process:
-        if stop_event and stop_event.is_set():
-            break
-        process_packet_helper(pkt)
-
-    packets_to_process.clear()
+    pkt = global_state.packet_queue.get()
+    process_packet_helper(pkt)
 
 
 def process_packet_helper(pkt: sc.Packet):
