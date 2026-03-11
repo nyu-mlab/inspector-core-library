@@ -26,12 +26,11 @@ import time
 import logging
 
 from . import global_state
+from . import common
 
 logger = logging.getLogger(__name__)
 
 sc.load_layer('tls')
-
-print_queue_size_dict = {'last_updated_ts': 0}
 
 
 def start():
@@ -47,54 +46,28 @@ def start():
         host_active_interface = global_state.host_active_interface
         host_ip_addr = global_state.host_ip_addr
 
+    session_stats = {'count': 0}
+    def add_packet_to_queue(pkt: sc.Packet):
+        session_stats['count'] += 1
+        global_state.packet_queue.put(pkt)
     # Continuously sniff packets for 30 second intervals (as sniff might crash).
     # Also, avoid capturing packets to/from the host itself, except ARP, which
     # we need for discovery.
+    start_ts = time.time()
     sc.sniff(
         prn=add_packet_to_queue,
         iface=host_active_interface,
-        stop_filter=lambda _: not inspector_is_running(),
+        stop_filter=lambda _: not common.inspector_is_running(),
         filter=f'(not arp and host not {host_ip_addr}) or arp',
-        timeout=30
+        timeout=30,
+        store=False
     )
 
+    # After sniff finishes (either timeout or stop_filter)
+    duration = time.time() - start_ts
+    count = session_stats['count']
 
-def inspector_is_running() -> bool:
-    """
-    Check if the Inspector is currently running.
-
-    This function acquires a global lock and returns the current running state of the Inspector,
-    as indicated by the `is_running` flag in global state.
-
-    Returns:
-        bool: True if the Inspector is running, False otherwise.
-    """
-    with global_state.global_state_lock:
-        return global_state.is_running
-
-
-def add_packet_to_queue(pkt: sc.Packet):
-    """
-    Add a captured packet to the global packet queue for processing.
-
-    This function checks if packet inspection is currently enabled. If so, it puts the packet
-    into the global queue for later processing. Additionally, it logs the current queue size
-    every 10 seconds for monitoring purposes.
-
-    Args:
-        pkt (scapy.packet.Packet): The captured network packet to be queued.
-
-    Returns:
-        None
-    """
-    with global_state.global_state_lock:
-        if not global_state.is_inspecting:
-            return
-
-    global_state.packet_queue.put(pkt)
-
-    # Print the queue size every 10 seconds
-    current_time = time.time()
-    if current_time - print_queue_size_dict['last_updated_ts'] > 10:
+    if count > 0:
+        packet_per_second = count / duration
+        logger.info(f"[packet_collector] Interval complete. Collected {count} packets (~{packet_per_second:.2f} pkt/s)")
         logger.info(f'[packet_collector] Packet queue size: {global_state.packet_queue.qsize()}')
-        print_queue_size_dict['last_updated_ts'] = int(current_time)

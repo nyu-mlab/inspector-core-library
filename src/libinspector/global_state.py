@@ -21,9 +21,7 @@ Variables:
     gateway_ip_addr (str): Default gateway IP address.
     ip_range (list): List of IP addresses in the local network range.
     db_conn_and_lock (tuple or None): In-memory database connection and its lock.
-    read_only_db_lock (threading.RLock): Lock for read-only database operations, allowing concurrent reads (threading.RLock).
     is_running (bool): Indicates if the application is running.
-    is_inspecting (bool): Indicates if inspection mode is enabled.
     inspector_started (list): Singleton flag to ensure only one Inspector instance.
     inspector_started_ts (float): Timestamp when Inspector was started.
     packet_queue (queue.Queue): Queue for packets to be processed.
@@ -58,17 +56,9 @@ ip_range : list = []
 # In-memory database connection and lock (Exclusive WRITE Lock)
 db_conn_and_lock: Tuple[Any, threading.Lock] | None = None
 
-# In-memory database connection and RLock (Concurrent READ Lock)
-# This variable replaces the old standalone read_only_db_lock.
-db_conn_and_read_only_lock: Tuple[Any, threading.RLock] | None = None
-
 # Whether the application is running or not. True by default; if false, the
 # entire application shuts down.
 is_running : bool = True
-
-# Whether inspection mode is enabled or not. True by default; if not, stops all
-# inspection. Does not change the is_inspected state in the devices table.
-is_inspecting : bool = True
 
 # Make sure that only one single instance of Inspector core is running
 inspector_started = [False]

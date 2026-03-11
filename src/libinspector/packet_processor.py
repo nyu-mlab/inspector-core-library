@@ -11,6 +11,7 @@ import scapy.all as sc
 import traceback
 import logging
 import json
+import threading
 
 from . import global_state
 from .tls_processor import extract_sni
@@ -19,29 +20,34 @@ from . import networking
 
 logger = logging.getLogger(__name__)
 
-update_hostnames_in_flows_status_dict = {
-    'last_update_ts': 0
-}
 
-
-
-def start():
+def start(stop_event: threading.Event = None, run_event: threading.Event = None, timeout : int = 0.1):
     """
-    Retrieve a network packet from the global packet queue and process it.
-
-    This function obtains the next packet from the shared packet queue and passes it to the packet processing helper.
-    Any exceptions raised during processing are caught and logged with detailed traceback information for debugging.
-
-    Returns:
-        None
+    Worker strategy: Pull all available packets from the queue and process them in a single cycle.
     """
-    pkt = global_state.packet_queue.get()
+    if run_event:
+        run_event.wait()
 
-    try:
+    packets_to_process = []
+
+    # Drain the queue entirely so we can process in bulk
+    while not global_state.packet_queue.empty():
+        packets_to_process.append(global_state.packet_queue.get(block=False))
+
+    if not packets_to_process:
+        if stop_event:
+            stop_event.wait(timeout=timeout)
+        else:
+            time.sleep(timeout)
+        return
+
+    # Process the batch
+    for pkt in packets_to_process:
+        if stop_event and stop_event.is_set():
+            break
         process_packet_helper(pkt)
 
-    except Exception as e:
-        logger.error(f'[Pkt Processor] Error processing packet: {e} for packet: {pkt}\n{traceback.format_exc()}')
+    packets_to_process.clear()
 
 
 def process_packet_helper(pkt: sc.Packet):
@@ -74,10 +80,12 @@ def process_packet_helper(pkt: sc.Packet):
     # Process individual packets and terminate
     # ====================
     if sc.ARP in pkt:
-        return process_arp(pkt)
+        process_arp(pkt)
+        return
 
     if sc.DHCP in pkt:
-        return process_dhcp(pkt)
+        process_dhcp(pkt)
+        return
 
     # Must have Ether frame and IP frame.
     if not (sc.Ether in pkt and sc.IP in pkt):
@@ -89,7 +97,8 @@ def process_packet_helper(pkt: sc.Packet):
 
     # DNS
     if sc.DNS in pkt:
-        return process_dns(pkt)
+        process_dns(pkt)
+        return
 
     # ====================
     # Process flows and their first packets
@@ -99,7 +108,7 @@ def process_packet_helper(pkt: sc.Packet):
     process_http_user_agent(pkt)
 
     # Process flow
-    return process_flow(pkt)
+    process_flow(pkt)
 
 
 def process_arp(pkt: sc.Packet):
@@ -143,8 +152,7 @@ def process_arp(pkt: sc.Packet):
                 is_gateway=excluded.is_gateway
         ''', (mac_addr, ip_addr, current_ts, is_gateway))
 
-    # Update the OUI vendors
-    with rw_lock:
+        # Update the OUI vendors
         conn.execute('''
             UPDATE devices
             SET metadata_json = json_patch(
@@ -331,8 +339,6 @@ def process_flow(pkt: sc.Packet):
             src_port, dst_port, protocol, len(pkt), 1, tcp_seq, tcp_seq
         ))
 
-    update_hostnames_in_flows()
-
 
 def update_hostnames_in_flows():
     """
@@ -340,9 +346,6 @@ def update_hostnames_in_flows():
 
     This function runs at most once every 2 seconds. It checks if enough time has passed since the last update, and if so, it acquires a database lock and executes an SQL statement to update the `src_hostname` and `dest_hostname` fields in the `network_flows` table. The update is performed only for flows where either the source or destination hostname is missing and a matching IP-to-hostname mapping exists in the `hostnames` table. After the update, the function records the current timestamp and logs the number of rows affected. This ensures that the flow records reflect the most recent hostname information for easier analysis and tracking.
     """
-    if time.time() - update_hostnames_in_flows_status_dict['last_update_ts'] < 2:
-        return
-
     conn, rw_lock = global_state.db_conn_and_lock
 
     with rw_lock:
@@ -373,7 +376,6 @@ def update_hostnames_in_flows():
         '''
         row_count = conn.execute(sql).rowcount
 
-    update_hostnames_in_flows_status_dict['last_update_ts'] = time.time()
     logger.info(f'[Pkt Processor] Updated {row_count} rows in network_flows with hostnames.')
 
 
@@ -469,13 +471,9 @@ def process_http_user_agent(pkt: sc.Packet):
     if sc.TCP not in pkt or pkt[sc.TCP].dport not in [80, 8080]:
         return
 
-    logger.debug(f'[Pkt Processor] Processing potential HTTP packet from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}')
-
     # Check for Raw layer (where HTTP payload resides)
     if sc.Raw not in pkt:
         return
-
-    logger.debug(f'[Pkt Processor] Found Raw layer in packet from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, attempting to decode HTTP payload')
 
     # Extract HTTP payload and attempt to decode
     try:
@@ -483,20 +481,14 @@ def process_http_user_agent(pkt: sc.Packet):
     except Exception:
         return
 
-    logger.debug(f'[Pkt Processor] Decoded HTTP payload from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, checking for User-Agent header')
-
     # Check if this is an HTTP GET/POST request (only requests contain User-Agent)
     if not payload.startswith(('GET ', 'POST ')):
         return
-
-    logger.debug(f'[Pkt Processor] HTTP request detected from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, looking for User-Agent header')
 
     # Look for the User-Agent header
     user_agent_start_tag = 'User-Agent: '
     if user_agent_start_tag not in payload:
         return
-
-    logger.debug(f'[Pkt Processor] User-Agent header found in HTTP request from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, extracting value')
 
     user_agent_str = ''
     try:
@@ -508,8 +500,6 @@ def process_http_user_agent(pkt: sc.Packet):
                 break
     except Exception:
         return
-
-    logger.debug(f'[Pkt Processor] Extracted User-Agent string: "{user_agent_str}" from HTTP request from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}')
 
     if len(user_agent_str) == 0:
         return
