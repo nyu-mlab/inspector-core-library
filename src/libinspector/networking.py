@@ -36,7 +36,7 @@ import netaddr
 import logging
 import psutil
 import sys
-
+import re
 from . import global_state
 from . import common
 
@@ -298,50 +298,100 @@ def is_ipv4_addr(ip_string: str) -> bool:
         return False
 
 
-def enable_ip_forwarding():
+def get_actual_icmp_redirect_state():
     """
-    Enable IP forwarding on the host system.
-
-    This function enables IP forwarding (routing) at the OS level, allowing the host to forward packets between interfaces.
-    Exits the program if the operation fails.
+    Retrieves the current ICMP redirect state for Windows, Mac, or Linux.
+    CRASHES if the state cannot be determined to protect config integrity.
     """
     os_platform = common.get_os()
 
-    if os_platform == 'mac':
-        cmd = ['/usr/sbin/sysctl', '-w', 'net.inet.ip.forwarding=1']
-    elif os_platform == 'linux':
-        cmd = ['sysctl', '-w', 'net.ipv4.ip_forward=1']
-    elif os_platform == 'windows':
-        cmd = ['powershell', 'Set-NetIPInterface', '-Forwarding', 'Enabled']
-    else:
-        logger.error(f'[networking] Unsupported OS platform: {os_platform}. Cannot enable IP forwarding.')
-        raise RuntimeError(f'[networking] Unsupported OS platform: {os_platform}. Cannot enable IP forwarding.')
+    if os_platform == 'windows':
+        # Output looks like: "ICMP Redirects : enabled"
+        output = subprocess.check_output(['netsh', 'interface', 'ipv4', 'show', 'global'], text=True)
+        match = re.search(r'ICMP Redirects\s*:\s*(\w+)', output)
+        if not match:
+            raise RuntimeError("Could not parse Windows ICMP state from netsh.")
+        return match.group(1).lower()  # 'enabled' or 'disabled'
 
-    if subprocess.call(cmd) != 0:
-        logger.error('[networking] Failed to enable IP forwarding.')
-        raise RuntimeError('[networking] Failed to enable IP forwarding.')
+    elif os_platform == 'linux':
+        # Output looks like: "net.ipv4.conf.all.send_redirects = 1"
+        output = subprocess.check_output(['sysctl', 'net.ipv4.conf.all.send_redirects'], text=True)
+        match = re.search(r'=\s*(\d)', output)
+        if not match:
+            raise RuntimeError("Could not parse Linux send_redirects state.")
+        # 1 is enabled, 0 is disabled
+        return "enabled" if match.group(1) == "1" else "disabled"
+
+    elif os_platform == 'mac':
+        # Output looks like: "net.inet.icmp.drop_redirect: 0"
+        # NOTE: drop_redirect=1 means redirects are DISABLED (dropped).
+        output = subprocess.check_output(['sysctl', 'net.inet.icmp.drop_redirect'], text=True)
+        match = re.search(r':\s*(\d)', output)
+        if not match:
+            raise RuntimeError("Could not parse Mac drop_redirect state.")
+        return "disabled" if match.group(1) == "1" else "enabled"
+
+    else:
+        raise OSError(f"Unsupported OS platform: {os_platform}")
+
+
+def enable_ip_forwarding():
+    """
+    Enables IP forwarding and silences ICMP redirects.
+    Uses check_call to ensure the program crashes if setup fails.
+    """
+    os_platform = common.get_os()
+
+    # 1. Capture original state before we touch anything
+    original_icmp_state = get_actual_icmp_redirect_state()
+    with global_state.global_state_lock:
+        global_state.icmp_redirect_enabled = original_icmp_state
+    logger.info(f"[networking] Original ICMP state detected as: {original_icmp_state}")
+
+    cmds = []
+    if os_platform == 'mac':
+        cmds.append(['sysctl', '-w', 'net.inet.ip.forwarding=1'])
+        cmds.append(['sysctl', '-w', 'net.inet.icmp.drop_redirect=1'])
+    elif os_platform == 'linux':
+        cmds.append(['sysctl', '-w', 'net.ipv4.ip_forward=1'])
+        cmds.append(['sysctl', '-w', 'net.ipv4.conf.all.send_redirects=0'])
+    elif os_platform == 'windows':
+        cmds.append(['powershell', 'Set-NetIPInterface', '-Forwarding', 'Enabled'])
+        cmds.append(['netsh', 'interface', 'ipv4', 'set', 'global', 'icmpredirects=disabled'])
+        cmds.append(['netsh', 'interface', 'ipv6', 'set', 'global', 'icmpredirects=disabled'])
+    else:
+        raise NotImplementedError(f"Unsupported OS platform: {os_platform}")
+
+    for cmd in cmds:
+        logger.info(f"[networking] Setting up: {' '.join(cmd)}")
+        subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def disable_ip_forwarding():
     """
-    Disable IP forwarding on the host system.
-
-    This function disables IP forwarding (routing) at the OS level, preventing the host from forwarding packets between interfaces.
-    Exits the program if the operation fails.
+    Restores original system state.
     """
     os_platform = common.get_os()
+    with global_state.global_state_lock:
+        original_icmp_state = global_state.icmp_redirect_enabled
 
+    cmds = []
     if os_platform == 'mac':
-        cmd = ['/usr/sbin/sysctl', '-w', 'net.inet.ip.forwarding=0']
+        cmds.append(['sysctl', '-w', 'net.inet.ip.forwarding=0'])
+        # If it was enabled (0), set drop back to 0. If it was disabled (1), set to 1.
+        val = '1' if original_icmp_state == 'disabled' else '0'
+        cmds.append(['sysctl', '-w', f'net.inet.icmp.drop_redirect={val}'])
     elif os_platform == 'linux':
-        cmd = ['sysctl', '-w', 'net.ipv4.ip_forward=0']
+        cmds.append(['sysctl', '-w', 'net.ipv4.ip_forward=0'])
+        val = '0' if original_icmp_state == 'disabled' else '1'
+        cmds.append(['sysctl', '-w', f'net.ipv4.conf.all.send_redirects={val}'])
     elif os_platform == 'windows':
-        cmd = ['powershell', 'Set-NetIPInterface', '-Forwarding', 'Disabled']
+        cmds.append(['powershell', 'Set-NetIPInterface', '-Forwarding', 'Disabled'])
+        cmds.append(['netsh', 'interface', 'ipv4', 'set', 'global', f'icmpredirects={original_icmp_state}'])
+        cmds.append(['netsh', 'interface', 'ipv6', 'set', 'global', f'icmpredirects={original_icmp_state}'])
     else:
-        logger.error(f'[networking] Unsupported OS platform: {os_platform}. Cannot disable IP forwarding.')
-        raise RuntimeError(f'[networking] Unsupported OS platform: {os_platform}. Cannot disable IP forwarding.')
+        raise NotImplementedError(f"Unsupported OS platform: {os_platform}")
 
-    if subprocess.call(cmd) != 0:
-        logger.error('[networking] Failed to disable IP forwarding.')
-        raise RuntimeError('[networking] Failed to disable IP forwarding.')
-
+    for cmd in cmds:
+        logger.info(f"[networking] Cleaning up: {' '.join(cmd)}")
+        subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
