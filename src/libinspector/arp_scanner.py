@@ -45,6 +45,7 @@ def start():
     logger.info(f'[ARP Scanner] Scanning {len(ip_range)} IP addresses.')
 
     for ip in ip_range:
+
         # What is the MAC address of the host running Inspector?
         with global_state.global_state_lock:
             host_mac_addr = global_state.host_mac_addr

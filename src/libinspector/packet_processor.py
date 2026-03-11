@@ -11,7 +11,6 @@ import scapy.all as sc
 import traceback
 import logging
 import json
-import threading
 
 from . import global_state
 from .tls_processor import extract_sni
@@ -20,34 +19,29 @@ from . import networking
 
 logger = logging.getLogger(__name__)
 
+update_hostnames_in_flows_status_dict = {
+    'last_update_ts': 0
+}
 
-def start(stop_event: threading.Event = None, run_event: threading.Event = None, timeout : int = 0.1):
+
+
+def start():
     """
-    Worker strategy: Pull all available packets from the queue and process them in a single cycle.
+    Retrieve a network packet from the global packet queue and process it.
+
+    This function obtains the next packet from the shared packet queue and passes it to the packet processing helper.
+    Any exceptions raised during processing are caught and logged with detailed traceback information for debugging.
+
+    Returns:
+        None
     """
-    if run_event:
-        run_event.wait()
+    pkt = global_state.packet_queue.get()
 
-    packets_to_process = []
-
-    # Drain the queue entirely so we can process in bulk
-    while not global_state.packet_queue.empty():
-        packets_to_process.append(global_state.packet_queue.get(block=False))
-
-    if not packets_to_process:
-        if stop_event:
-            stop_event.wait(timeout=timeout)
-        else:
-            time.sleep(timeout)
-        return
-
-    # Process the batch
-    for pkt in packets_to_process:
-        if stop_event and stop_event.is_set():
-            break
+    try:
         process_packet_helper(pkt)
 
-    packets_to_process.clear()
+    except Exception as e:
+        logger.error(f'[Pkt Processor] Error processing packet: {e} for packet: {pkt}\n{traceback.format_exc()}')
 
 
 def process_packet_helper(pkt: sc.Packet):
@@ -63,6 +57,9 @@ def process_packet_helper(pkt: sc.Packet):
 
     Args:
         pkt: The network packet (scapy packet) to process.
+
+    Returns:
+        None, or the result of the specific packet handler if applicable.
     """
     with global_state.global_state_lock:
         pkt_callback_func = global_state.custom_packet_callback_func
@@ -77,12 +74,10 @@ def process_packet_helper(pkt: sc.Packet):
     # Process individual packets and terminate
     # ====================
     if sc.ARP in pkt:
-        process_arp(pkt)
-        return
+        return process_arp(pkt)
 
     if sc.DHCP in pkt:
-        process_dhcp(pkt)
-        return
+        return process_dhcp(pkt)
 
     # Must have Ether frame and IP frame.
     if not (sc.Ether in pkt and sc.IP in pkt):
@@ -94,8 +89,7 @@ def process_packet_helper(pkt: sc.Packet):
 
     # DNS
     if sc.DNS in pkt:
-        process_dns(pkt)
-        return
+        return process_dns(pkt)
 
     # ====================
     # Process flows and their first packets
@@ -105,18 +99,14 @@ def process_packet_helper(pkt: sc.Packet):
     process_http_user_agent(pkt)
 
     # Process flow
-    process_flow(pkt)
+    return process_flow(pkt)
 
 
 def process_arp(pkt: sc.Packet):
     """
     Process an ARP packet to update the ARP cache and device information in the database.
 
-    This function handles ARP request and reply packets, ignoring those sent by the Inspector
-    host or with a source IP of 0.0.0.0. It determines if the ARP entry corresponds to the
-    network gateway and updates or inserts the device's MAC and IP address in the `devices` table,
-    along with a timestamp and gateway status. Afterward, it updates the device's metadata with
-    the OUI vendor if not already present.
+    This function handles ARP request and reply packets, ignoring those sent by the Inspector host or with a source IP of 0.0.0.0. It determines if the ARP entry corresponds to the network gateway and updates or inserts the device's MAC and IP address in the `devices` table, along with a timestamp and gateway status. Afterward, it updates the device's metadata with the OUI vendor if not already present.
 
     Args:
         pkt: The ARP packet (scapy packet) to process.
@@ -153,7 +143,8 @@ def process_arp(pkt: sc.Packet):
                 is_gateway=excluded.is_gateway
         ''', (mac_addr, ip_addr, current_ts, is_gateway))
 
-        # Update the OUI vendors
+    # Update the OUI vendors
+    with rw_lock:
         conn.execute('''
             UPDATE devices
             SET metadata_json = json_patch(
@@ -168,12 +159,7 @@ def process_dns(pkt: sc.Packet):
     """
     Process a DNS packet to extract the querying device, hostname, and associated IP addresses.
 
-    This code determines which device made the DNS request or response by comparing MAC addresses
-    with the Inspector host. It ensures the device is not the gateway and extracts the queried hostname
-    from the DNS question section, removing any trailing dot. If the packet contains DNS answers,
-    it collects all IPv4 addresses from A records. If no IP addresses are found, an empty string is used.
-    The extracted device MAC address, hostname, and set of IP addresses are then recorded in the database
-    for tracking DNS activity.
+    This code determines which device made the DNS request or response by comparing MAC addresses with the Inspector host. It ensures the device is not the gateway and extracts the queried hostname from the DNS question section, removing any trailing dot. If the packet contains DNS answers, it collects all IPv4 addresses from A records. If no IP addresses are found, an empty string is used. The extracted device MAC address, hostname, and set of IP addresses are then recorded in the database for tracking DNS activity.
 
     Args:
         pkt: The network packet (scapy packet) containing the DNS data.
@@ -236,12 +222,7 @@ def write_hostname_ip_mapping_to_db(device_mac_addr: str, hostname: str, ip_set:
     """
     Insert or update hostname-to-IP mappings in the `hostnames` table and log the operation.
 
-    This code iterates over a set of IP addresses and, for each, inserts a new record or updates an
-    existing one in the `hostnames` database table with the provided hostname, current timestamp,
-    and data source. The operation is performed within a write lock to ensure thread safety.
-
-    After updating the database, it logs the mapping of the device's MAC address, hostname,
-    and associated IP addresses for traceability.
+    This code iterates over a set of IP addresses and, for each, inserts a new record or updates an existing one in the `hostnames` database table with the provided hostname, current timestamp, and data source. The operation is performed within a write lock to ensure thread safety. After updating the database, it logs the mapping of the device's MAC address, hostname, and associated IP addresses for traceability.
 
     Args:
         ip_set (set): Set of IP addresses to associate with the hostname.
@@ -271,16 +252,7 @@ def process_flow(pkt: sc.Packet):
     """
     Process a TCP or UDP packet and update the `network_flows` table with flow information.
 
-    This function inspects the given packet to determine if it contains a TCP or UDP layer.
-    It extracts relevant flow details such as source and destination MAC addresses,
-    IP addresses, ports, and the TCP sequence number (if applicable).
-
-    The function ensures the packet is not a broadcast and that the Inspector host is
-    involved in the communication, updating MAC addresses as needed to reflect the
-    actual device or gateway. It then inserts or updates a record in the `network_flows`
-    database table, incrementing byte and packet counts and updating TCP sequence number
-    metadata. After updating the flow, it triggers a refresh of hostnames in the flow records
-    to ensure the most current hostname information is associated with each flow.
+    This function inspects the given packet to determine if it contains a TCP or UDP layer. It extracts relevant flow details such as source and destination MAC addresses, IP addresses, ports, and the TCP sequence number (if applicable). The function ensures the packet is not a broadcast and that the Inspector host is involved in the communication, updating MAC addresses as needed to reflect the actual device or gateway. It then inserts or updates a record in the `network_flows` database table, incrementing byte and packet counts and updating TCP sequence number metadata. After updating the flow, it triggers a refresh of hostnames in the flow records to ensure the most current hostname information is associated with each flow.
 
     Args:
         pkt: The network packet (scapy packet) to process.
@@ -359,21 +331,18 @@ def process_flow(pkt: sc.Packet):
             src_port, dst_port, protocol, len(pkt), 1, tcp_seq, tcp_seq
         ))
 
+    update_hostnames_in_flows()
+
 
 def update_hostnames_in_flows():
     """
-    Update the `network_flows` table by replacing IP addresses with corresponding hostnames from the
-    `hostnames` table.
+    Update the `network_flows` table by replacing IP addresses with corresponding hostnames from the `hostnames` table.
 
-    It acquires a database lock and executes an SQL statement to update the `src_hostname` and
-    `dest_hostname` fields in the `network_flows` table. The update is performed only for flows
-    where either the source or destination hostname is missing and a matching IP-to-hostname
-    mapping exists in the `hostnames` table.
-
-    After the update, the function records the current timestamp and logs the number of rows affected.
-    This ensures that the flow records reflect the most recent hostname information for easier analysis
-    and tracking.
+    This function runs at most once every 2 seconds. It checks if enough time has passed since the last update, and if so, it acquires a database lock and executes an SQL statement to update the `src_hostname` and `dest_hostname` fields in the `network_flows` table. The update is performed only for flows where either the source or destination hostname is missing and a matching IP-to-hostname mapping exists in the `hostnames` table. After the update, the function records the current timestamp and logs the number of rows affected. This ensures that the flow records reflect the most recent hostname information for easier analysis and tracking.
     """
+    if time.time() - update_hostnames_in_flows_status_dict['last_update_ts'] < 2:
+        return
+
     conn, rw_lock = global_state.db_conn_and_lock
 
     with rw_lock:
@@ -404,8 +373,8 @@ def update_hostnames_in_flows():
         '''
         row_count = conn.execute(sql).rowcount
 
-    if row_count > 0:
-        logger.info(f'[Pkt Processor] Updated {row_count} rows in network_flows with hostnames.')
+    update_hostnames_in_flows_status_dict['last_update_ts'] = time.time()
+    logger.info(f'[Pkt Processor] Updated {row_count} rows in network_flows with hostnames.')
 
 
 def process_dhcp(pkt: sc.Packet):
@@ -414,12 +383,7 @@ def process_dhcp(pkt: sc.Packet):
 
     This function checks if the given packet is a DHCP Request broadcast.
     If so, it attempts to extract the hostname from the DHCP options.
-    If a valid hostname is found and the packet is not a response from the Inspector host itself,
-    the function updates the devices table in the database with the device's MAC address, IP address,
-    and hostname information. This enables tracking of devices and their hostnames on the network.
-
-    If the packet does not meet these criteria or an error occurs during extraction, the function
-    returns without making changes.
+    If a valid hostname is found and the packet is not a response from the Inspector host itself, the function updates the devices table in the database with the device's MAC address, IP address, and hostname information. This enables tracking of devices and their hostnames on the network. If the packet does not meet these criteria or an error occurs during extraction, the function returns without making changes.
 
     Args:
         pkt: The network packet (scapy packet) to process.
@@ -466,17 +430,9 @@ def process_dhcp(pkt: sc.Packet):
 
 def process_client_hello(pkt: sc.Packet):
     """
-    Extract the Server Name Indication (SNI) from a TLS ClientHello packet and
-    updates the database with the mapping.
+    Extract the Server Name Indication (SNI) from a TLS ClientHello packet and updates the database with the mapping.
 
-    This function processes a network packet to determine if it is destined for
-    the Inspector host. If so, it attempts to extract the SNI field from the TLS
-    ClientHello handshake. When an SNI is found, it is converted to lowercase and
-    associated with the source device's MAC address and the remote IP address.
-
-    This information is then recorded in the database, allowing tracking of which
-    devices are attempting to connect to which hostnames. If the packet is not
-    destined for the Inspector host or does not contain an SNI, no action is taken.
+    This function processes a network packet to determine if it is destined for the Inspector host. If so, it attempts to extract the SNI field from the TLS ClientHello handshake. When an SNI is found, it is converted to lowercase and associated with the source device's MAC address and the remote IP address. This information is then recorded in the database, allowing tracking of which devices are attempting to connect to which hostnames. If the packet is not destined for the Inspector host or does not contain an SNI, no action is taken.
 
     Args:
         pkt: The network packet (scapy packet) to process.
@@ -513,9 +469,13 @@ def process_http_user_agent(pkt: sc.Packet):
     if sc.TCP not in pkt or pkt[sc.TCP].dport not in [80, 8080]:
         return
 
+    logger.debug(f'[Pkt Processor] Processing potential HTTP packet from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}')
+
     # Check for Raw layer (where HTTP payload resides)
     if sc.Raw not in pkt:
         return
+
+    logger.debug(f'[Pkt Processor] Found Raw layer in packet from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, attempting to decode HTTP payload')
 
     # Extract HTTP payload and attempt to decode
     try:
@@ -523,14 +483,20 @@ def process_http_user_agent(pkt: sc.Packet):
     except Exception:
         return
 
+    logger.debug(f'[Pkt Processor] Decoded HTTP payload from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, checking for User-Agent header')
+
     # Check if this is an HTTP GET/POST request (only requests contain User-Agent)
     if not payload.startswith(('GET ', 'POST ')):
         return
+
+    logger.debug(f'[Pkt Processor] HTTP request detected from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, looking for User-Agent header')
 
     # Look for the User-Agent header
     user_agent_start_tag = 'User-Agent: '
     if user_agent_start_tag not in payload:
         return
+
+    logger.debug(f'[Pkt Processor] User-Agent header found in HTTP request from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}, extracting value')
 
     user_agent_str = ''
     try:
@@ -542,6 +508,8 @@ def process_http_user_agent(pkt: sc.Packet):
                 break
     except Exception:
         return
+
+    logger.debug(f'[Pkt Processor] Extracted User-Agent string: "{user_agent_str}" from HTTP request from {pkt[sc.Ether].src} to {pkt[sc.IP].dst}:{pkt[sc.TCP].dport}')
 
     if len(user_agent_str) == 0:
         return
@@ -562,5 +530,5 @@ def process_http_user_agent(pkt: sc.Packet):
                      ''', (user_agent_str, device_mac))
 
             logger.info(f'[Pkt Processor] HTTP: Device {device_mac} User-Agent: {user_agent_str}')
-        except Exception:
-            logger.exception(f'[Pkt Processor] Failed to update User Agent for {device_mac}')
+        except Exception as e:
+            logger.error(f'[Pkt Processor] Failed to update UA for {device_mac}: {e}')

@@ -14,7 +14,6 @@ Typical usage:
 """
 import sys
 import os
-from . import global_state
 
 
 def get_env_bool(name: str, default: bool = True):
@@ -29,20 +28,6 @@ def get_env_bool(name: str, default: bool = True):
     if value is None:
         return default
     return value.lower() in ['true', '1', 't', 'y', 'yes']
-
-
-def inspector_is_running() -> bool:
-    """
-    Check if the Inspector is currently running.
-
-    This function acquires a global lock and returns the current running state of the Inspector,
-    as indicated by the `is_running` flag in global state.
-
-    Returns:
-        bool: True if the Inspector is running, False otherwise.
-    """
-    with global_state.global_state_lock:
-        return global_state.is_running
 
 
 def get_os() -> str:

@@ -20,22 +20,31 @@ Functions:
         Sends bidirectional ARP spoofing packets between a victim device and the gateway.
 
 Dependencies:
-    scapy, traceback, logging, global_state, networking, common
+    time, scapy, traceback, logging, global_state, networking
 
 Note:
     You should NOT run this directly on the NYU network, you will be banned for ARP spoofing!
 """
+import time
 import scapy.all as sc
 import traceback
 import logging
 
 from . import global_state
 from . import networking
-from . import common
 from .common import get_env_bool
 
 
 logger = logging.getLogger(__name__)
+
+
+# How many seconds between successive ARP spoofing attempts for each host
+INTERNET_SPOOFING_INTERVAL = 10
+
+
+spoof_stat_dict = {
+    'last_internet_spoof_ts': 0
+}
 
 
 def start():
@@ -55,7 +64,12 @@ def start():
         - Updates the timestamp of the last spoofing operation.
         - Logs activity and errors.
     """
-    if not common.inspector_is_running():
+    with global_state.global_state_lock:
+        if not global_state.is_inspecting:
+            return
+
+    # Check if enough time has passed since the last time we spoofed internet traffic
+    if time.time() - spoof_stat_dict['last_internet_spoof_ts'] < INTERNET_SPOOFING_INTERVAL:
         return
 
     conn, rw_lock = global_state.db_conn_and_lock
@@ -95,11 +109,15 @@ def start():
     for device_dict in inspected_device_list:
         try:
             send_spoofed_arp(device_dict['mac_address'], device_dict['ip_address'], gateway_mac_addr, gateway_ip_addr)
-            spoof_count += 1
         except Exception:
             logger.error(f'[arp_spoof] Error spoofing {device_dict["mac_address"]}, {device_dict["ip_address"]} <-> {gateway_mac_addr}, {gateway_ip_addr}, because\n' + traceback.format_exc())
+        else:
+            spoof_count += 1
 
     logger.info(f'[arp_spoof] Spoofed internet traffic for {spoof_count} devices')
+    if spoof_count > 0:
+        spoof_stat_dict['last_internet_spoof_ts'] = int(time.time())
+
 
 
 def send_spoofed_arp(victim_mac_addr: str, victim_ip_addr: str, gateway_mac_addr: str, gateway_ip_addr: str):
@@ -129,10 +147,12 @@ def send_spoofed_arp(victim_mac_addr: str, victim_ip_addr: str, gateway_mac_addr
         return
 
     # Do not spoof packets if we're not globally inspecting
-    if common.inspector_is_running():
-        return
+    with global_state.global_state_lock:
+        if not global_state.is_inspecting:
+            return
 
-    # If a day comes of IoT stuff having ARP spoofing protections, we are ready.
+    # Send ARP spoof request to gateway, so that the gateway thinks that Inspector's host is the victim.
+    # 2/15/2025: Some routers will block ARP spoofing attempts that claim to be from the gateway, so we make this optional via an environment variable.
     if get_env_bool('ARP_SPOOF_ROUTER', True):
         logger.info("[arp_spoof] Sending ARP spoofing packet to gateway to impersonate victim")
         dest_arp = sc.ARP(op=2, psrc=victim_ip_addr, hwsrc=host_mac_addr, pdst=gateway_ip_addr, hwdst=gateway_mac_addr)

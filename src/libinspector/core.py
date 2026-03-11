@@ -22,6 +22,7 @@ Typical usage:
 import logging
 import time
 import sys
+import threading
 from typing import Callable, Optional
 from . import global_state
 from . import mem_db
@@ -71,10 +72,17 @@ def start_threads(custom_packet_callback_func: Optional[Callable] = None):
 
     # Initialize the database
     logger.info('[core] Initializing the database')
+    # 1. Get the connection (conn) and the exclusive WRITE lock (exclusive_lock)
     conn, exclusive_lock = mem_db.initialize_db()
+    # 2. Create the concurrent READ lock (RLock) dynamically
+    concurrent_read_lock = threading.RLock()
 
+    # 3. Assign both tuples to the global state
     with global_state.global_state_lock:
+        # Tuple 1: Connection + Exclusive Write Lock (for INSERT/UPDATE/DELETE)
         global_state.db_conn_and_lock = (conn, exclusive_lock)
+        # Tuple 2: Connection + Concurrent Read Lock (for SELECT)
+        global_state.db_conn_and_read_only_lock = (conn, concurrent_read_lock)
 
     # Initialize the networking variables
     logger.info('[core] Initializing the networking variables')
@@ -98,16 +106,15 @@ def start_threads(custom_packet_callback_func: Optional[Callable] = None):
         # Collect and process packets from the network
         safe_loop.SafeLoopThread(packet_collector.start, name="packet_collector"),
         safe_loop.SafeLoopThread(packet_processor.start, name="packet_processor"),
-        safe_loop.SafeLoopThread(packet_processor.update_hostnames_in_flows, name="hostname_updater", sleep_time=5),
         # Spoof internet traffic
-        safe_loop.SafeLoopThread(arp_spoof.start, name="arp_spoof", sleep_time=10),
+        safe_loop.SafeLoopThread(arp_spoof.start, name="arp_spoof", sleep_time=1),
         # Start the mDNS and UPnP scanner threads
         safe_loop.SafeLoopThread(ssdp_discovery.start, name="ssdp_discovery", sleep_time=5),
         safe_loop.SafeLoopThread(mdns_discovery.start, name="mdns_discovery", sleep_time=5)
     ]
 
     with global_state.global_state_lock:
-        global_state.active_threads.extend(threads)
+        global_state.active_threads = threads
     logger.info('[core] Inspector started')
 
 
@@ -131,8 +138,6 @@ def clean_up():
 
     for th in threads_to_kill:
         th.join(timeout=1)
-
-    for th in threads_to_kill:
         status = "SUCCESS" if not th.is_alive() else "HANGING"
         msg = f"[core] {status}: Thread '{th.name}'"
         logger.info(msg)
@@ -163,7 +168,7 @@ def main():
     try:
         while True:
             time.sleep(1)
-            if not common.inspector_is_running():
+            if not packet_collector.inspector_is_running():
                 break
 
     except KeyboardInterrupt:
