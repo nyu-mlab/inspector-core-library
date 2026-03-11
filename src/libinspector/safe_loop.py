@@ -84,9 +84,11 @@ class SafeLoopThread(object):
         self._run_event.set()
 
     def join(self, timeout: int = None):
+        """Join the SafeLoop Thread"""
         self._thread.join(timeout)
 
     def is_alive(self):
+        """Confirm if the Thread is alive"""
         return self._thread.is_alive()
 
     def _execute_repeated_func_safe(self):

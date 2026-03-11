@@ -65,9 +65,6 @@ def parse_ieee_oui_database_from_local_csv():
         - Populates the global `_oui_dict` with OUI-to-company mappings, clearing any old data.
         - Populates the global `_oui_length_split_list` with sorted OUI prefix lengths,
           clearing any old data.
-
-    Returns:
-        None
     """
     # Clear existing data to avoid conflicts with other database parsers
     _oui_dict.clear()

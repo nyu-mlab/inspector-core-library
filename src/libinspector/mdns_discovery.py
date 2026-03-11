@@ -250,6 +250,12 @@ def get_mdns_devices(service_type_discovery_timeout: int = 10, device_discovery_
 
 
 def start(stop_event: threading.Event = None, run_event: threading.Event = None):
+    """
+    Start the discovery process, used by IoT Inspector within a Thread function
+    Args:
+        stop_event (threading.Event, optional): An event to signal early termination of discovery.
+        run_event (threading.Event, optional): An event to signal to pause this thread
+    """
     if run_event:
         run_event.wait()
 
