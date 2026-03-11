@@ -264,7 +264,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description=
                                      'Run mDNS discovery to find devices on the local network')
-    parser.add_argument('--service', '-s', dest='service', action='store_true', type=int, default=10,
+    parser.add_argument('--service', '-s', dest='service', action='store', type=int, default=10,
                         help='Time to wait for service type discovery in seconds. (default: 10)')
     parser.add_argument('--device', '-d', dest='device', action='store', type=int, default=10,
                         help='Time to wait for device discovery per device in seconds. (default: 10)')

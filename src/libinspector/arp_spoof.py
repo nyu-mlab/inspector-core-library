@@ -20,7 +20,7 @@ Functions:
         Sends bidirectional ARP spoofing packets between a victim device and the gateway.
 
 Dependencies:
-    scapy, traceback, logging, global_state, networking, common
+    time, scapy, traceback, logging, global_state, networking
 
 Note:
     You should NOT run this directly on the NYU network, you will be banned for ARP spoofing!
@@ -32,7 +32,6 @@ import logging
 from . import global_state
 from . import networking
 from . import common
-from .common import get_env_bool
 
 
 logger = logging.getLogger(__name__)
@@ -129,11 +128,12 @@ def send_spoofed_arp(victim_mac_addr: str, victim_ip_addr: str, gateway_mac_addr
         return
 
     # Do not spoof packets if we're not globally inspecting
-    if common.inspector_is_running():
+    if not common.inspector_is_running():
         return
 
-    # If a day comes of IoT stuff having ARP spoofing protections, we are ready.
-    if get_env_bool('ARP_SPOOF_ROUTER', True):
+    # Send ARP spoof request to gateway, so that the gateway thinks that Inspector's host is the victim.
+    # 2/15/2025: Some routers will block ARP spoofing attempts that claim to be from the gateway, so we make this optional via an environment variable.
+    if common.get_env_bool('ARP_SPOOF_ROUTER', True):
         logger.info("[arp_spoof] Sending ARP spoofing packet to gateway to impersonate victim")
         dest_arp = sc.ARP(op=2, psrc=victim_ip_addr, hwsrc=host_mac_addr, pdst=gateway_ip_addr, hwdst=gateway_mac_addr)
         dest_pkt = sc.Ether(src=host_mac_addr, dst=gateway_mac_addr) / dest_arp
@@ -142,7 +142,7 @@ def send_spoofed_arp(victim_mac_addr: str, victim_ip_addr: str, gateway_mac_addr
         logger.info("[arp_spoof] Skipping ARP spoofing packet to gateway to impersonate victim due to environment variable setting")
 
     # Send ARP spoof request to a victim so that the victim thinks that Inspector's host is the gateway.
-    if get_env_bool('ARP_SPOOF_DEVICE', True):
+    if common.get_env_bool('ARP_SPOOF_DEVICE', True):
         logger.info("[arp_spoof] Sending ARP spoofing packet to victim to impersonate gateway")
         victim_arp = sc.ARP(op=2, psrc=gateway_ip_addr, hwsrc=host_mac_addr, pdst=victim_ip_addr, hwdst=victim_mac_addr)
         victim_pkt = sc.Ether(src=host_mac_addr, dst=victim_mac_addr) / victim_arp

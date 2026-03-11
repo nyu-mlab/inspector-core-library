@@ -41,8 +41,10 @@ def inspector_is_running() -> bool:
     Returns:
         bool: True if the Inspector is running, False otherwise.
     """
+    inspector_running = False
     with global_state.global_state_lock:
-        return global_state.is_running
+        inspector_running = global_state.is_running
+    return inspector_running
 
 
 def get_os() -> str:

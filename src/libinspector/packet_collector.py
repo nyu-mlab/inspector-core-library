@@ -32,29 +32,34 @@ logger = logging.getLogger(__name__)
 
 sc.load_layer('tls')
 
-print_queue_size_dict = {'last_updated_ts': 0}
 
+def start():
+    """
+    Continuously captures network packets from the active interface and adds them to the processing queue.
 
-def start(timeout: int = 10):
+    This function acquires the Inspector's active network interface and IP address under a global lock,
+    then uses Scapy's `sniff` to capture packets in 30-second intervals. The sniffing filter excludes
+    packets to/from the host itself, except for ARP packets which are required for device discovery.
+    Each captured packet is passed to `add_packet_to_queue`. Sniffing stops if the Inspector is no longer running.
+    """
     with global_state.global_state_lock:
         host_active_interface = global_state.host_active_interface
         host_ip_addr = global_state.host_ip_addr
 
-    # We want to both store and count the packets during the sniff session
     session_stats = {'count': 0}
-
     def add_packet_to_queue(pkt: sc.Packet):
         session_stats['count'] += 1
         global_state.packet_queue.put(pkt)
-
+    # Continuously sniff packets for 30 second intervals (as sniff might crash).
+    # Also, avoid capturing packets to/from the host itself, except ARP, which
+    # we need for discovery.
     start_ts = time.time()
-
     sc.sniff(
         prn=add_packet_to_queue,
         iface=host_active_interface,
         stop_filter=lambda _: not common.inspector_is_running(),
         filter=f'(not arp and host not {host_ip_addr}) or arp',
-        timeout=timeout,
+        timeout=30,
         store=False
     )
 
@@ -65,3 +70,4 @@ def start(timeout: int = 10):
     if count > 0:
         packet_per_second = count / duration
         logger.info(f"[packet_collector] Interval complete. Collected {count} packets (~{packet_per_second:.2f} pkt/s)")
+        logger.info(f'[packet_collector] Packet queue size: {global_state.packet_queue.qsize()}')
