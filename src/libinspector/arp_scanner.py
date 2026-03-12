@@ -24,13 +24,14 @@ Functions:
 """
 import scapy.all as sc
 import logging
+import threading
 from . import global_state
-
+from . import common
 
 logger = logging.getLogger(__name__)
 
 
-def start():
+def start(stop_event: threading.Event = None, run_event: threading.Event = None):
     """
     Perform an ARP scan over the configured IP range.
 
@@ -38,19 +39,23 @@ def start():
     Update the device's table and default routes as new devices are discovered.
     All devices in the IP range are inspected by default.
     """
-    # Obtain the IP range
+    if run_event:
+        run_event.wait()
+
+    if not common.inspector_is_running():
+        return
+
+    # Obtain the IP range, Host Mac and Host Interface
     with global_state.global_state_lock:
         ip_range = global_state.ip_range
+        host_mac_addr = global_state.host_mac_addr
+        host_active_interface = global_state.host_active_interface
 
     logger.info(f'[ARP Scanner] Scanning {len(ip_range)} IP addresses.')
 
     for ip in ip_range:
-        # What is the MAC address of the host running Inspector?
-        with global_state.global_state_lock:
-            host_mac_addr = global_state.host_mac_addr
-            host_active_interface = global_state.host_active_interface
-
+        if stop_event and stop_event.is_set():
+            break
         arp_pkt = sc.Ether(src=host_mac_addr, dst="ff:ff:ff:ff:ff:ff") / \
             sc.ARP(pdst=ip, hwsrc=host_mac_addr, hwdst="ff:ff:ff:ff:ff:ff")
-
         sc.sendp(arp_pkt, iface=host_active_interface, verbose=0)

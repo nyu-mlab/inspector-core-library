@@ -112,3 +112,6 @@ packet_processor_thread: threading.Thread | None = None
 
 # Flag set after the initial network scan is complete.
 device_discovery_complete: bool = False
+
+# Track if ICMP Redirect is enabled or not
+icmp_redirect_enabled : str = "unknown"

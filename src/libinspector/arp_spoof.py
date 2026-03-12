@@ -131,8 +131,7 @@ def send_spoofed_arp(victim_mac_addr: str, victim_ip_addr: str, gateway_mac_addr
     if not common.inspector_is_running():
         return
 
-    # Send ARP spoof request to gateway, so that the gateway thinks that Inspector's host is the victim.
-    # 2/15/2025: Some routers will block ARP spoofing attempts that claim to be from the gateway, so we make this optional via an environment variable.
+    # Enable control of ARP spoof direction, in case we have to worry about protections.
     if common.get_env_bool('ARP_SPOOF_ROUTER', True):
         logger.info("[arp_spoof] Sending ARP spoofing packet to gateway to impersonate victim")
         dest_arp = sc.ARP(op=2, psrc=victim_ip_addr, hwsrc=host_mac_addr, pdst=gateway_ip_addr, hwdst=gateway_mac_addr)

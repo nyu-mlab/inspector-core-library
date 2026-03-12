@@ -135,14 +135,16 @@ import json
 import logging
 import time
 import argparse
+import threading
 from typing import Iterator
 from . import global_state
+from . import common
 
 
 logger = logging.getLogger(__name__)
 
 
-def start():
+def start(stop_event: threading.Event = None, run_event: threading.Event = None):
     """
     Start the SSDP discovery process and update the device database with discovered devices.
 
@@ -154,7 +156,8 @@ def start():
         - Updates the `devices` table in the database with discovered device information.
         - Logs discovered devices using the module logger.
     """
-    conn, rw_lock = global_state.db_conn_and_lock
+    if not common.inspector_is_running():
+        return
 
     # Set the socket timeout based on when the Inspector started; shorter
     # timeout when Inspector has started for 5 minutes for more aggressive
@@ -166,8 +169,8 @@ def start():
         else:
             socket_timeout = 30
 
-    for discovered_device_dict in discover_upnp_devices(timeout=socket_timeout):
-
+    conn, rw_lock = global_state.db_conn_and_lock
+    for discovered_device_dict in discover_upnp_devices(timeout=socket_timeout, stop_event=stop_event, run_event=run_event):
         if not discovered_device_dict:
             continue
 
@@ -246,21 +249,21 @@ def parse_device_info(device_info: str) -> dict:
         dict: The parsed device info as a dictionary.
     """
     info_dict = {}
-    lines = device_info.split("\r\n")
-    for line in lines:
+    for line in device_info.split("\r\n"):
         if ": " in line:
             key, value = line.split(": ", 1)
             info_dict[key] = value
     return info_dict
 
 
-def discover_upnp_devices(timeout: int = 5) -> Iterator[dict]:
+def discover_upnp_devices(timeout: int = 5, stop_event: threading.Event = None, run_event: threading.Event = None) -> Iterator[dict]:
     """
     Discover UPnP devices using SSDP.
 
     Args:
         timeout (int, optional): The socket timeout in seconds. Defaults to 5.
-
+        stop_event (threading.Event, optional): An event to signal stopping the discovery process. Defaults to None.
+        run_event (threading.Event, optional): An event to control pausing and resuming the discovery process. Defaults to None.
     Returns:
         Iterator[dict]: An iterator of discovered device dictionaries.
     """
@@ -277,17 +280,22 @@ def discover_upnp_devices(timeout: int = 5) -> Iterator[dict]:
 
     # Set to store the IP addresses of discovered devices
     device_ip_set = set()
+    start_time = time.time()
 
     # Create a UDP socket with automatic resource management
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.settimeout(timeout)
+        sock.settimeout(1.0)
 
         # Bind to a random port and send the SSDP discovery request
         sock.sendto(MSEARCH_MSG, (SSDP_ADDR, SSDP_PORT))
-
-        try:
-            while True:
+        while (time.time() - start_time) < timeout:
+            if stop_event and stop_event.is_set():
+                logger.info("[ssdp] Orderly shutdown triggered mid-discovery.")
+                return
+            if run_event:
+                run_event.wait()
+            try:
                 response, addr = sock.recvfrom(4096)
                 ssdp_response = response.decode("utf-8", errors="ignore")
                 device_ip_addr = addr[0]
@@ -299,24 +307,18 @@ def discover_upnp_devices(timeout: int = 5) -> Iterator[dict]:
 
                 device_dict = {
                     'device_ip_addr': device_ip_addr,
-                    'ssdp_response_dict': None,
+                    'ssdp_response_dict': parse_device_info(ssdp_response),
                     'location_contents': None
                 }
 
-                try:
-                    device_dict["ssdp_response_dict"] = parse_device_info(ssdp_response)
-                except Exception:
-                    pass
-                else:
-                    if "LOCATION" in device_dict["ssdp_response_dict"]:
-                        xml_json = fetch_and_parse_xml(device_dict["ssdp_response_dict"]["LOCATION"])
-                        if xml_json:
-                            device_dict['location_contents'] = xml_json
+                if "LOCATION" in device_dict["ssdp_response_dict"]:
+                    xml_json = fetch_and_parse_xml(device_dict["ssdp_response_dict"]["LOCATION"])
+                    if xml_json:
+                        device_dict['location_contents'] = xml_json
 
                 yield device_dict
-
-        except socket.timeout:
-            pass
+            except socket.timeout:
+                pass
 
 
 def main():

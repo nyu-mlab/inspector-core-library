@@ -11,6 +11,7 @@ SafeLoopThread(my_func, args=['a'], kwargs={'b': 2}, sleep_time=1)
 """
 import threading
 import logging
+import inspect
 from typing import Callable
 
 
@@ -83,9 +84,11 @@ class SafeLoopThread(object):
         self._run_event.set()
 
     def join(self, timeout: int = None):
+        """Join the SafeLoop Thread"""
         self._thread.join(timeout)
 
     def is_alive(self):
+        """Confirm if the Thread is alive"""
         return self._thread.is_alive()
 
     def _execute_repeated_func_safe(self):
@@ -108,6 +111,20 @@ class SafeLoopThread(object):
                 break
             try:
                 self._func(*self._func_args, **self._func_kwargs)
+                parameters = inspect.signature(self._func).parameters
+
+                # Build the kwargs to inject
+                extra_kwargs = {}
+                if 'stop_event' in parameters:
+                    extra_kwargs['stop_event'] = self._stop_event
+                if 'run_event' in parameters:
+                    extra_kwargs['run_event'] = self._run_event
+
+                # Merge with existing user-provided kwargs
+                final_kwargs = {**self._func_kwargs, **extra_kwargs}
+
+                # Execute the function
+                self._func(*self._func_args, **final_kwargs)
             except Exception:
                 logger.exception(f"[SafeLoopThread] Crash in {self.name} ({self._func.__name__}) "
                                  f"with args={self._func_args} kwargs={self._func_kwargs}")
