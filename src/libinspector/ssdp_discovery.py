@@ -249,8 +249,7 @@ def parse_device_info(device_info: str) -> dict:
         dict: The parsed device info as a dictionary.
     """
     info_dict = {}
-    lines = device_info.split("\r\n")
-    for line in lines:
+    for line in device_info.split("\r\n"):
         if ": " in line:
             key, value = line.split(": ", 1)
             info_dict[key] = value
@@ -308,14 +307,9 @@ def discover_upnp_devices(timeout: int = 5, stop_event: threading.Event = None, 
 
                 device_dict = {
                     'device_ip_addr': device_ip_addr,
-                    'ssdp_response_dict': None,
+                    'ssdp_response_dict': parse_device_info(ssdp_response),
                     'location_contents': None
                 }
-
-                try:
-                    device_dict["ssdp_response_dict"] = parse_device_info(ssdp_response)
-                except Exception:
-                    pass
 
                 if "LOCATION" in device_dict["ssdp_response_dict"]:
                     xml_json = fetch_and_parse_xml(device_dict["ssdp_response_dict"]["LOCATION"])
