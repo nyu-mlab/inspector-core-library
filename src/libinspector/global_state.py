@@ -115,3 +115,10 @@ device_discovery_complete: bool = False
 
 # Track if ICMP Redirect is enabled or not
 icmp_redirect_enabled : str = "unknown"
+
+# Track some Network settings original state
+task_offload: str = "unknown"
+rsc: str = "unknown"
+rss: str = "unknown"
+mtu_v4: str = "1500"
+mtu_v6: str = "1500"
