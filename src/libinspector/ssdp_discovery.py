@@ -143,6 +143,17 @@ from . import common
 
 logger = logging.getLogger(__name__)
 
+# SSDP multicast address and port
+SSDP_ADDR = "239.255.255.250"
+SSDP_PORT = 1900
+MSEARCH_MSG = f"""M-SEARCH * HTTP/1.1
+HOST: {SSDP_ADDR}:{SSDP_PORT}
+MAN: "ssdp:discover"
+MX: 3
+ST: ssdp:all
+
+""".encode("utf-8")
+
 
 def start(stop_event: threading.Event = None, run_event: threading.Event = None):
     """
@@ -169,6 +180,7 @@ def start(stop_event: threading.Event = None, run_event: threading.Event = None)
         else:
             socket_timeout = 30
 
+    logger.info(f"[ssdp] Discovering devices...with timeout {socket_timeout}")
     conn, rw_lock = global_state.db_conn_and_lock
     for discovered_device_dict in discover_upnp_devices(timeout=socket_timeout, stop_event=stop_event, run_event=run_event):
         if not discovered_device_dict:
@@ -267,35 +279,21 @@ def discover_upnp_devices(timeout: int = 5, stop_event: threading.Event = None, 
     Returns:
         Iterator[dict]: An iterator of discovered device dictionaries.
     """
-    # SSDP multicast address and port
-    SSDP_ADDR = "239.255.255.250"
-    SSDP_PORT = 1900
-    MSEARCH_MSG = f"""M-SEARCH * HTTP/1.1
-    HOST: {SSDP_ADDR}:{SSDP_PORT}
-    MAN: "ssdp:discover"
-    MX: 3
-    ST: ssdp:all
-
-    """.encode("utf-8")
 
     # Set to store the IP addresses of discovered devices
     device_ip_set = set()
-    start_time = time.time()
+    # start_time = time.time()
 
     # Create a UDP socket with automatic resource management
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.settimeout(1.0)
+        sock.settimeout(timeout)
 
         # Bind to a random port and send the SSDP discovery request
         sock.sendto(MSEARCH_MSG, (SSDP_ADDR, SSDP_PORT))
-        while (time.time() - start_time) < timeout:
-            if stop_event and stop_event.is_set():
-                logger.info("[ssdp] Orderly shutdown triggered mid-discovery.")
-                return
-            if run_event:
-                run_event.wait()
-            try:
+
+        try:
+            while True:
                 response, addr = sock.recvfrom(4096)
                 ssdp_response = response.decode("utf-8", errors="ignore")
                 device_ip_addr = addr[0]
@@ -317,8 +315,8 @@ def discover_upnp_devices(timeout: int = 5, stop_event: threading.Event = None, 
                         device_dict['location_contents'] = xml_json
 
                 yield device_dict
-            except socket.timeout:
-                pass
+        except socket.timeout:
+            pass
 
 
 def main():
