@@ -36,7 +36,6 @@ import netaddr
 import logging
 import psutil
 import sys
-import re
 from . import global_state
 from . import common
 
@@ -89,7 +88,7 @@ def get_ip_address_from_mac(mac_addr: str) -> str:
         sql = 'SELECT ip_address FROM devices WHERE mac_address = ?'
         result = conn.execute(sql, (mac_addr,)).fetchone()
 
-    if result is None:
+    if result is not None:
         return result[0]
 
     raise KeyError(f'No IP address found for MAC address {mac_addr}')
@@ -265,7 +264,6 @@ def get_network_ip_range() -> set:
     return ip_set
 
 
-
 def is_private_ip_addr(ip_addr: str) -> bool:
     """
     Determine if the given IP address is a private (non-global) address.
@@ -276,9 +274,8 @@ def is_private_ip_addr(ip_addr: str) -> bool:
     Returns:
         bool: True if the address is private/local, False if it is global/public.
     """
-    ip_addr = ipaddress.ip_address(ip_addr)
-    return not ip_addr.is_global
-
+    ip_address_type = ipaddress.ip_address(ip_addr)
+    return not ip_address_type.is_global
 
 
 def is_ipv4_addr(ip_string: str) -> bool:
@@ -298,7 +295,7 @@ def is_ipv4_addr(ip_string: str) -> bool:
         return False
 
 
-def get_actual_icmp_redirect_state():
+def get_actual_icmp_redirect_state() -> str:
     """
     Retrieves the current ICMP redirect state for Windows, Mac, or Linux.
     CRASHES if the state cannot be determined to protect config integrity.
@@ -306,89 +303,31 @@ def get_actual_icmp_redirect_state():
     os_platform = common.get_os()
 
     if os_platform == 'windows':
-        # Output looks like: "ICMP Redirects : enabled"
-        output = subprocess.check_output(['netsh', 'interface', 'ipv4', 'show', 'global'], text=True)
-        match = re.search(r'ICMP Redirects\s*:\s*(\w+)', output)
-        if not match:
-            raise RuntimeError("Could not parse Windows ICMP state from netsh.")
-        return match.group(1).lower()  # 'enabled' or 'disabled'
+        # This PowerShell snippet tries IcmpRedirects first, then Redirects as a fallback
+        ps_cmd = (
+            "$p = Get-NetIPv4Protocol; "
+            "if ($p.IcmpRedirects -ne $null) { $p.IcmpRedirects } "
+            "else { $p.Redirects }"
+        )
+        cmd = ['powershell', '-Command', ps_cmd]
+        output = subprocess.check_output(cmd, text=True).strip()
+        # PowerShell returns "Enabled" or "Disabled" regardless of OS language
+        return output.lower()
 
     elif os_platform == 'linux':
-        # Output looks like: "net.ipv4.conf.all.send_redirects = 1"
-        output = subprocess.check_output(['sysctl', 'net.ipv4.conf.all.send_redirects'], text=True)
-        match = re.search(r'=\s*(\d)', output)
-        if not match:
-            raise RuntimeError("Could not parse Linux send_redirects state.")
-        # 1 is enabled, 0 is disabled
-        return "enabled" if match.group(1) == "1" else "disabled"
+        # '-n' returns ONLY the value (e.g., '1' or '0'), no labels to parse!
+        output = subprocess.check_output(['sysctl', '-n', 'net.ipv4.conf.all.send_redirects'], text=True).strip()
+        # 1 = Kernel will send redirects (Enabled)
+        return "enabled" if output == "1" else "disabled"
 
     elif os_platform == 'mac':
-        # Output looks like: "net.inet.icmp.drop_redirect: 0"
-        # NOTE: drop_redirect=1 means redirects are DISABLED (dropped).
-        output = subprocess.check_output(['sysctl', 'net.inet.icmp.drop_redirect'], text=True)
-        match = re.search(r':\s*(\d)', output)
-        if not match:
-            raise RuntimeError("Could not parse Mac drop_redirect state.")
-        return "disabled" if match.group(1) == "1" else "enabled"
+        # '-n' returns ONLY the value
+        output = subprocess.check_output(['sysctl', '-n', 'net.inet.icmp.drop_redirect'], text=True).strip()
+        # NOTE: drop_redirect=1 means the kernel DROPS them (Disabled)
+        return "disabled" if output == "1" else "enabled"
 
     else:
         raise OSError(f"Unsupported OS platform: {os_platform}")
-
-
-
-
-def get_windows_network_states(iface_name: str):
-    """
-    Parses netsh output for both IPv4 and IPv6 to capture original network
-    optimization and MTU settings for restoration.
-    """
-    states = {
-        'task_offload': 'enabled',
-        'rsc': 'enabled',
-        'rss': 'enabled',
-        'mtu_v4': '1500',
-        'mtu_v6': '1500'
-    }
-    try:
-        # 1. Check IP Global (Shared between v4 and v6 for Task Offload)
-        ip_out = subprocess.check_output(['netsh', 'int', 'ip', 'show', 'global'], text=True)
-        offload_match = re.search(r'Task Offload\s+:\s+(\w+)', ip_out, re.IGNORECASE)
-        if offload_match:
-            states['task_offload'] = offload_match.group(1).lower()
-
-        # 2. Check TCP Global (RSS and RSC)
-        tcp_out = subprocess.check_output(['netsh', 'int', 'tcp', 'show', 'global'], text=True)
-        rss_match = re.search(r'Receive-Side Scaling State\s+:\s+(\w+)', tcp_out, re.IGNORECASE)
-        rsc_match = re.search(r'Receive Segment Coalescing State\s+:\s+(\w+)', tcp_out, re.IGNORECASE)
-
-        if rss_match:
-            states['rss'] = rss_match.group(1).lower()
-        if rsc_match:
-            states['rsc'] = rsc_match.group(1).lower()
-
-        # 3. Check IPv4 MTU
-        mtu4_out = subprocess.check_output(['netsh', 'int', 'ipv4', 'show', 'subinterface', f'"{iface_name}"'],
-                                           text=True)
-        mtu4_match = re.search(r'(\d+)\s+\d+\s+\d+\s+' + re.escape(iface_name), mtu4_out)
-        if mtu4_match:
-            states['mtu_v4'] = mtu4_match.group(1)
-
-        # 4. Check IPv6 MTU
-        try:
-            mtu6_out = subprocess.check_output(['netsh', 'int', 'ipv6', 'show', 'subinterface', f'"{iface_name}"'],
-                                               text=True)
-            mtu6_match = re.search(r'(\d+)\s+\d+\s+\d+\s+' + re.escape(iface_name), mtu6_out)
-            if mtu6_match:
-                states['mtu_v6'] = mtu6_match.group(1)
-        except subprocess.CalledProcessError:
-            # Some interfaces might not have IPv6 enabled
-            states['mtu_v6'] = '1500'
-
-    except Exception as e:
-        logger.error(f"[networking] Failed to capture original states: {e}")
-        raise RuntimeError("Failed to collect all necessary information about network state")
-
-    return states
 
 
 def enable_ip_forwarding():
@@ -400,10 +339,8 @@ def enable_ip_forwarding():
 
     # 1. Capture original state before we touch anything
     original_icmp_state = get_actual_icmp_redirect_state()
-    active_interface = ""
     with global_state.global_state_lock:
         global_state.icmp_redirect_enabled = original_icmp_state
-        active_interface = global_state.host_active_interface
     logger.info(f"[networking] Original ICMP state detected as: {original_icmp_state}")
 
     cmds = []
@@ -414,28 +351,11 @@ def enable_ip_forwarding():
         cmds.append(['sysctl', '-w', 'net.ipv4.ip_forward=1'])
         cmds.append(['sysctl', '-w', 'net.ipv4.conf.all.send_redirects=0'])
     elif os_platform == 'windows':
-        original_settings = get_windows_network_states(active_interface)
-        with global_state.global_state_lock:
-            global_state.task_offload = original_settings['task_offload']
-            global_state.rsc = original_settings['rsc']
-            global_state.rss = original_settings['rss']
-            global_state.mtu_v4 = original_settings['mtu_v4']
-            global_state.mtu_v6 = original_settings['mtu_v6']
-
         cmds.append(['powershell', 'Set-NetIPInterface', '-Forwarding', 'Enabled', '-AddressFamily', 'IPv4'])
         cmds.append(['powershell', 'Set-NetIPInterface', '-Forwarding', 'Enabled', '-AddressFamily', 'IPv6'])
 
         cmds.append(['netsh', 'interface', 'ipv4', 'set', 'global', 'icmpredirects=disabled'])
         cmds.append(['netsh', 'interface', 'ipv6', 'set', 'global', 'icmpredirects=disabled'])
-
-        # Some settings to turn off too.
-        cmds.append(['netsh', 'int', 'ip', 'set', 'global', 'taskoffload=disabled'])
-        cmds.append(['netsh', 'int', 'tcp', 'set', 'global', 'rsc=disabled'])
-        cmds.append(['netsh', 'int', 'tcp', 'set', 'global', 'rss=disabled'])
-
-        # Change MTU
-        cmds.append(['netsh', 'int', 'ipv4', 'set', 'subinterface', f'"{active_interface}"', 'mtu=1300', 'store=active'])
-        cmds.append(['netsh', 'int', 'ipv6', 'set', 'subinterface', f'"{active_interface}"', 'mtu=1300', 'store=active'])
 
         # Have firewall drop ICMP redirects
         cmds.append(['powershell', 'New-NetFirewallRule', '-DisplayName', '"IoT-Inspector-Silence"',
@@ -469,14 +389,6 @@ def disable_ip_forwarding():
         val = '0' if original_icmp_state == 'disabled' else '1'
         cmds.append(['sysctl', '-w', f'net.ipv4.conf.all.send_redirects={val}'])
     elif os_platform == 'windows':
-        with global_state.global_state_lock:
-            iface = global_state.host_active_interface
-            mtu_v4 = global_state.mtu_v4
-            mtu_v6 = global_state.mtu_v6
-            rss = global_state.rss
-            rsc = global_state.rsc
-            task_offload = global_state.task_offload
-
         cmds.append(['powershell', 'Set-NetIPInterface', '-Forwarding', 'Disabled', '-AddressFamily', 'IPv4'])
         cmds.append(['powershell', 'Set-NetIPInterface', '-Forwarding', 'Disabled', '-AddressFamily', 'IPv6'])
 
@@ -484,22 +396,12 @@ def disable_ip_forwarding():
         cmds.append(['netsh', 'interface', 'ipv4', 'set', 'global', f'icmpredirects={original_icmp_state}'])
         cmds.append(['netsh', 'interface', 'ipv6', 'set', 'global', f'icmpredirects={original_icmp_state}'])
 
-        # Restore MTU
-        cmds.append(['netsh', 'int', 'ipv4', 'set', 'subinterface', f'"{iface}"', f'mtu={mtu_v4}', 'store=active'])
-        cmds.append(['netsh', 'int', 'ipv6', 'set', 'subinterface', f'"{iface}"', f'mtu={mtu_v6}', 'store=active'])
-
         # Undo ICMP redirect drop
         cmds.append(['powershell', 'Remove-NetFirewallRule', '-DisplayName', '"IoT-Inspector-Silence"'])
         cmds.append(['powershell', 'Remove-NetFirewallRule', '-DisplayName', '"IoT-Inspector-Silence-v6"'])
-
-        # undo the network optimizations back to default
-        cmds.append(['netsh', 'int', 'ip', 'set', 'global', f'taskoffload={task_offload}'])
-        cmds.append(['netsh', 'int', 'tcp', 'set', 'global', f'rss={rss}'])
-        cmds.append(['netsh', 'int', 'tcp', 'set', 'global', f'rsc={rsc}'])
     else:
         raise NotImplementedError(f"Unsupported OS platform: {os_platform}")
 
     for cmd in cmds:
-        logger.info(f"[networking] Cleaning up:"
-                    f" {' '.join(cmd)}")
+        logger.info(f"[networking] Cleaning up: {' '.join(cmd)}")
         subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
