@@ -3,7 +3,9 @@ import subprocess
 import os
 import libinspector.common as common
 import libinspector.networking as networking
+import logging
 
+logger = logging.getLogger(__name__)
 
 def cidr_to_netmask(cidr_prefix):
     """Converts a CIDR prefix to a dotted-decimal netmask."""
@@ -198,6 +200,11 @@ class TestNetworking(unittest.TestCase):
         self.assertIn(router_ip, ip_range)
 
         networking.update_network_info()
+
+    def test_get_icmp_redirect_status(self):
+        icmp_status = networking.get_actual_icmp_redirect_state()
+        logger.info(f"ICMP status is {icmp_status}")
+        self.assertIn(icmp_status,["enabled", "disabled"])
 
     # GitHub Actions often run in a controlled environment where IP forwarding may not be applicable or allowed.
     @unittest.skipIf(os.environ.get("GITHUB_ACTIONS") == "true", "Skipping IP forwarding test in CI/CD environment")
