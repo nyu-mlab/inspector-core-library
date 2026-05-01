@@ -653,13 +653,6 @@
             },
             "default": "block"
         },
-        "combine.urbanairship.com": {
-            "owner": {
-                "name": "Urban Airship, Inc.",
-                "displayName": "Urban Airship"
-            },
-            "default": "block"
-        },
         "configure.rayjump.com": {
             "owner": {
                 "name": "Talent Game Box",
@@ -790,13 +783,6 @@
             "owner": {
                 "name": "33Across, Inc.",
                 "displayName": "33Across"
-            },
-            "default": "block"
-        },
-        "device-api.urbanairship.com": {
-            "owner": {
-                "name": "Urban Airship, Inc.",
-                "displayName": "Urban Airship"
             },
             "default": "block"
         },
@@ -5211,26 +5197,6 @@
                 "device_make",
                 "os_version",
                 "country",
-                "platform"
-            ]
-        },
-        "Urban Airship, Inc.": {
-            "score": 4751,
-            "signals": [
-                "gps_coordinates",
-                "email_address",
-                "neighborhood",
-                "city",
-                "unique_identifier",
-                "network_carrier",
-                "app_version",
-                "device_model",
-                "app_name",
-                "device_make",
-                "os_version",
-                "country",
-                "timezone",
-                "device_screen_density",
                 "platform"
             ]
         },
