@@ -14,7 +14,7 @@ Functions:
 
 Dependencies:
     logging, time, os, sys, global_state, mem_db, networking, safe_loop, arp_scanner,
-    packet_collector, packet_processor, arp_spoof, ssdp_discovery, mdns_discovery
+    packet_collector, packet_processor, arp_spoof, ssdp_discovery, mdns_discovery, nmap_scanner
 
 Typical usage:
     python -m libinspector.core
@@ -33,6 +33,7 @@ from . import packet_processor
 from . import arp_spoof
 from . import ssdp_discovery
 from . import mdns_discovery
+from . import nmap_scanner
 from . import common
 
 LOG_FILE = 'inspector.log'
@@ -104,7 +105,9 @@ def start_threads(custom_packet_callback_func: Optional[Callable] = None):
         safe_loop.SafeLoopThread(arp_spoof.start, name="arp_spoof", sleep_time=10),
         # Start the mDNS and UPnP scanner threads
         safe_loop.SafeLoopThread(ssdp_discovery.start, name="ssdp_discovery", sleep_time=5),
-        safe_loop.SafeLoopThread(mdns_discovery.start, name="mdns_discovery", sleep_time=5)
+        safe_loop.SafeLoopThread(mdns_discovery.start, name="mdns_discovery", sleep_time=5),
+        # Scan inspected devices with nmap (opt-in via ENABLE_NMAP_SCAN)
+        safe_loop.SafeLoopThread(nmap_scanner.start, name="nmap_scanner", sleep_time=300)
     ]
 
     with global_state.global_state_lock:
